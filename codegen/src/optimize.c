@@ -1,5 +1,6 @@
 #include "internal.h"
 #include "mips_code.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 /* 分岐命令かどうか判定 */
@@ -28,13 +29,13 @@ static int is_load(AsmCode code) {
   }
 }
 
-/* 命令が特定のレジスタを「読み取って」いるか判定する */
+/* その命令が reg を「読む（使用する）」か判定 */
 static int is_reg_used(AsmInst *insn, MipsReg reg) {
   if (reg == R_ZERO)
-    return 0; // $zeroの読み取りは無視してよい
+    return 0;
 
   switch (insn->code) {
-    // --- 3オペランド (R形式): op1=dst, op2=src, op3=src ---
+  // 3オペランド (R形式): op2, op3 を読む
   case ASM_ADD:
   case ASM_ADDU:
   case ASM_SUB:
@@ -58,8 +59,7 @@ static int is_reg_used(AsmInst *insn, MipsReg reg) {
       return 1;
     return 0;
 
-    // --- 2オペランド (I形式): op1=dst, op2=src, op3=imm ---
-    // addi rt, rs, imm -> op2 を読む
+  // 2オペランド (I形式): op2 を読む
   case ASM_ADDI:
   case ASM_ADDIU:
   case ASM_ANDI:
@@ -68,13 +68,12 @@ static int is_reg_used(AsmInst *insn, MipsReg reg) {
   case ASM_SLTI:
   case ASM_SLTIU:
   case ASM_LW:
-  case ASM_LB: // lw rt, off(base) -> base(op2) を読む
+  case ASM_LB:
     if (insn->op2.type == OP_REG && insn->op2.reg == reg)
       return 1;
     return 0;
 
-    // --- ストア命令: op1=src(val), op2=src(base) ---
-    // sw rt, off(base) -> rt(op1) と base(op2) 両方を読む
+  // ストア: op1(値), op2(アドレス) 両方を読む
   case ASM_SW:
   case ASM_SB:
     if (insn->op1.type == OP_REG && insn->op1.reg == reg)
@@ -83,8 +82,7 @@ static int is_reg_used(AsmInst *insn, MipsReg reg) {
       return 1;
     return 0;
 
-    // --- 分岐命令: op1=src, op2=src ---
-    // beq rs, rt, label
+  // 分岐: op1, op2 を読む
   case ASM_BEQ:
   case ASM_BNE:
     if (insn->op1.type == OP_REG && insn->op1.reg == reg)
@@ -93,16 +91,14 @@ static int is_reg_used(AsmInst *insn, MipsReg reg) {
       return 1;
     return 0;
 
-    // --- ジャンプ (レジスタ指定) ---
-    // jr rs -> op1 を読む
+  // ジャンプ(Register): op1 を読む
   case ASM_JR:
   case ASM_JALR:
     if (insn->op1.type == OP_REG && insn->op1.reg == reg)
       return 1;
     return 0;
 
-    // --- シフト (即値): op1=dst, op2=src, op3=imm ---
-    // sll rd, rt, shamt -> rt(op2) を読む
+  // シフト(Imm): op2 を読む
   case ASM_SLL:
   case ASM_SRL:
   case ASM_SRA:
@@ -110,12 +106,20 @@ static int is_reg_used(AsmInst *insn, MipsReg reg) {
       return 1;
     return 0;
 
+  // 即値ロード系 & NOP & Jump: レジスタを読まない
+  case ASM_LI:
+  case ASM_LUI:
+  case ASM_LA:
+  case ASM_NOP:
+  case ASM_J:
+  case ASM_JAL:
+    return 0;
+
   case ASM_SYSCALL:
-    // syscallは $v0, $a0 等を暗黙に読む。
     return 1;
 
   default:
-    return 1;
+    return 1; // 未知の命令は安全側に倒す
   }
 }
 
@@ -197,13 +201,18 @@ void optimize_nop(CodeList *list) {
 
 /* レジスタがこの後で読まれるか */
 static int is_reg_read_later(Code *start_node, MipsReg reg) {
+
   for (Code *cur = start_node; cur != NULL; cur = cur->next) {
     if (cur->kind != CODE_INSN)
       continue;
 
     // この命令で読まれているか？
-    if (is_reg_used(&cur->insn, reg))
+    if (is_reg_used(&cur->insn, reg)) {
+
+      // fprintf(stderr, "use : [%d][%d],[%d]\n", cur->insn.code,
+      //         cur->insn.op1.reg, cur->insn.op2.reg);
       return 1;
+    }
 
     // この命令で「上書き」されたら、そこから先は古い値は不要なので「読まれていない」と判定
     AsmInst *insn = &cur->insn;
@@ -280,7 +289,8 @@ void optimize_address(CodeList *list) {
           // 16bitに収まるか？ (-32768 ~ 32767)
           if (new_offset >= -32768 && new_offset <= 32767) {
 
-            int is_lw_addr_use = (i2->code == ASM_LW || i2->code == ASM_LB) &&
+            int is_lw_addr_use = is_load(i2->code) &&
+                                 (i2->op2.reg == i2->op1.reg) &&
                                  next->next->kind == CODE_INSN &&
                                  next->next->insn.code == ASM_NOP;
             if (is_lw_addr_use || !is_reg_read_later(next->next, rd)) {
