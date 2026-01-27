@@ -1,0 +1,17 @@
+func foo(p){
+    define z;
+    define w;
+    z = 21;
+    w = z * 3;
+    p^ = w;
+}
+
+
+func main(){
+define x;
+define y;
+define z;
+x = 10;
+y = x + 2;
+funccall foo(@z);
+}

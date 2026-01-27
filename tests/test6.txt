@@ -1,0 +1,6 @@
+define p;
+define a;
+define b;
+a = 42;
+p = @a;
+(p+1)^ = 100;

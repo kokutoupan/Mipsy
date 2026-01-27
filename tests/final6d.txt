@@ -1,0 +1,50 @@
+func quicksort(a, l, r){
+  define v, i, j, t;
+  
+  // l, r は通常のインデックス(0, 9など)として受け取る
+  if (r > l){
+    v = a[r]; // ポインタaのr番目の要素にアクセス
+    
+    i = l - 1;
+    j = r;
+    
+    while(1==1){
+      i = i + 1;
+      while(a[i] < v){
+        i = i + 1;
+      }
+      
+      j = j - 1;
+      while(a[j] > v){
+        if (j == l) { break; } 
+        j = j - 1;
+      }
+      
+      if (i >= j){ break;}
+      
+      // swap(a[i], a[j])
+      t = a[i];
+      a[i] = a[j];
+      a[j] = t;
+    }
+    
+    // swap(a[i], a[r])
+    t = a[i];
+    a[i] = a[r];
+    a[r] = t;
+    
+    // 再帰呼び出しもインデックスでOK
+    funccall quicksort(a, l, i - 1);
+    funccall quicksort(a, i + 1, r);
+  }
+}
+
+func main(){
+  array data[10];
+  // 初期化...
+  data[0] = 10; data[1] = 4; data[2] = 2; data[3] = 7; data[4] = 3;
+  data[5] = 5;  data[6] = 9; data[7] = 10; data[8] = 1; data[9] = 8;
+  
+  // 第3引数も「36 (バイトオフセット)」ではなく「9 (インデックス)」でOK
+  funccall quicksort(@data, 0, 9);
+}

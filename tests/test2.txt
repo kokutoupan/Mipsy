@@ -1,0 +1,17 @@
+func times(a){
+  a^ = a * a;
+}
+
+func main() {
+  define i;
+  define b;
+  i = 0;
+  while(i < 10) {
+    if (i == 5) {
+      break;
+    }
+    i = i + 1;
+  }
+  b = 2;
+  funccall times(@b);
+}
