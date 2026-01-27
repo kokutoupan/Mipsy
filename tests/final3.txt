@@ -1,3 +1,4 @@
+func main(){
 define fizz;
 define buzz;
 define fizzbuzz;
@@ -28,3 +29,4 @@ i = i + 1;
 fizz = fizz;
 buzz = buzz;
 others = others;
+}
