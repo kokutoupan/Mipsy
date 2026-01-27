@@ -5,7 +5,7 @@ typedef enum {
   ND_DEF,      // 定義
   ND_DEFARRAY, // ARRAYの定義
   ND_REF,      // 参照
-  ND_VAR,      // 変数・数値
+  ND_NUM,      // 変数・数値
   ND_ASSIGN,   // 代入 (=)
   ND_IF,       // IF
   ND_IF_ELSE,  // IF-ELSE

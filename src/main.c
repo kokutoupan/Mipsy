@@ -6,6 +6,7 @@
 #include "mips_print.h"
 #include "print_ast.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 extern int yylex();
@@ -16,7 +17,7 @@ extern Node *top;
 extern CodeList codeList;
 
 int opt_show_ast = 0;
-int opt_optimize = 0;
+int opt_optimize = 1;
 int opt_debug = 0;
 const char *out_file = "out.s";
 
@@ -35,12 +36,19 @@ void usage(const char *prog) {
 int main(int argc, char *argv[]) {
 
   int opt;
-  while ((opt = getopt(argc, argv, "aOo:hd")) != -1) {
+  while ((opt = getopt(argc, argv, "aO::o:hd")) != -1) {
     switch (opt) {
     case 'a':
       opt_show_ast = 1;
       break;
     case 'O':
+      if (optarg) {
+        // -O1, -O2 のように引数がある場合
+        opt_optimize = atoi(optarg);
+      } else {
+        // -O だけの場合はデフォルトでレベル1にする
+        opt_optimize = 1;
+      }
       opt_optimize = 1;
       break;
     case 'o':

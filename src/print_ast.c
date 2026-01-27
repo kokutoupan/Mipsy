@@ -64,7 +64,7 @@ void print_ast(Node *node, int depth) {
     print_ast(node->node1, depth + 1);
     break;
 
-  case ND_VAR:
+  case ND_NUM:
     printf("VAR: %d\n", node->extra);
     break;
 
@@ -170,8 +170,8 @@ void print_ast_json(Node *node, int depth) {
     printf("\"value\": \"%s\"\n", node->str);
     break;
 
-  case ND_VAR:
-    printf("VAR\",\n");
+  case ND_NUM:
+    printf("NUM\",\n");
     shift_view(depth + 1);
     printf("\"value\": \"%s\"\n", node->str);
     break;

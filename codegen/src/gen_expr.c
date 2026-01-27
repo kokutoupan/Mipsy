@@ -14,7 +14,7 @@ Operand get_operand(CodeList *out, Node *node, MipsReg reg) {
   Operand op = {OP_REG, reg};
 
   // 1. 即値 (数値リテラルなど)
-  if (node->id == ND_VAR) {
+  if (node->id == ND_NUM) {
     op.type = OP_IMM;
     op.imm = node->extra;
     return op;

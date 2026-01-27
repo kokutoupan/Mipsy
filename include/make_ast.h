@@ -8,7 +8,7 @@ Node *make_define_node(Node *id);
 Node *make_array_node(Node *id, Node *num);
 Node *make_array_ref_node(Node *id, Node *num);
 
-Node *make_val_id_node(int val);
+Node *make_num_node(int val);
 
 Node *make_cond_node(Node *left, CompOp op, Node *right);
 Node *make_if_node(Node *cond, Node *t);

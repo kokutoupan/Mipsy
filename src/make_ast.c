@@ -50,9 +50,9 @@ Node *make_array_ref_node(Node *id, Node *num) {
   return n;
 }
 
-Node *make_val_id_node(int val) {
+Node *make_num_node(int val) {
   Node *n = malloc(sizeof(Node));
-  n->id = ND_VAR;
+  n->id = ND_NUM;
   n->extra = val;
   n->node0 = NULL;
   return n;

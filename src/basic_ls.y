@@ -14,6 +14,7 @@
   extern CodeList codeList;
 
   extern int opt_debug;
+  extern int opt_optimize;
 %}
 
 
@@ -222,7 +223,7 @@ Variable
   }
   |   NUMBER{
   // [TODO] numようにする
-    $$ = make_val_id_node($1);
+    $$ = make_num_node($1);
   }
   ;
 
