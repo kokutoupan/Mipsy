@@ -26,6 +26,22 @@ int calc(int a, ArithOp op, int b) {
       return 0;
     }
     return a / b;
+  case OP_MOD:
+    if (b == 0) {
+      fprintf(stderr, "warning: division by zero\n");
+      return 0;
+    }
+    return a % b;
+  case OP_AND:
+    return a & b;
+  case OP_OR:
+    return a | b;
+  case OP_XOR:
+    return a ^ b;
+  case OP_LSHIFT:
+    return a << b;
+  case OP_RSHIFT:
+    return b >> a;
   }
 }
 

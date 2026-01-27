@@ -20,6 +20,12 @@ string {alphanumeric}+
 \>               {return GT;}
 "<="              {return LEQ;}
 ">="              {return GEQ;}
+"%"  { return MOD; }
+"&"  { return BITAND; }
+"|"  { return BITOR; }
+"^"  { return BITXOR; }
+"<<" { return LSHIFT; }
+">>" { return RSHIFT; }
 
 \(               {return LPR;}
 \)               {return RPR;}

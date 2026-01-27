@@ -91,6 +91,43 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
     append_code(out, new_code(ASM_DIVU, op1, op1, op2));
     append_code(out, new_code_r(ASM_MFLO, reg, reg, reg));
     break;
+  case OP_MOD: // 剰余 (%)
+    if (op2.type == OP_IMM)
+      op2 = imm2reg(out, op2, reg + 1);
+    append_code(out, new_code(ASM_DIVU, op1, op1, op2));
+    append_code(
+        out, new_code_r(ASM_MFHI, reg, reg, reg)); // Hiレジスタから余りを取得
+    break;
+
+  case OP_AND: // &
+    if (op2.type == OP_IMM)
+      op2 = imm2reg(out, op2, reg + 1);
+    append_code(out, new_code(ASM_AND, op1, op1, op2));
+    break;
+
+  case OP_OR: // |
+    if (op2.type == OP_IMM)
+      op2 = imm2reg(out, op2, reg + 1);
+    append_code(out, new_code(ASM_OR, op1, op1, op2));
+    break;
+
+  case OP_XOR: // ^
+    if (op2.type == OP_IMM)
+      op2 = imm2reg(out, op2, reg + 1);
+    append_code(out, new_code(ASM_XOR, op1, op1, op2));
+    break;
+
+  case OP_LSHIFT: // <<
+    if (op2.type == OP_IMM)
+      op2 = imm2reg(out, op2, reg + 1);
+    append_code(out, new_code(ASM_SLLV, op1, op1, op2));
+    break;
+
+  case OP_RSHIFT: // >> (算術右シフト)
+    if (op2.type == OP_IMM)
+      op2 = imm2reg(out, op2, reg + 1);
+    append_code(out, new_code(ASM_SRAV, op1, op1, op2));
+    break;
 
   default:
     fprintf(stderr, "expr_eval: unknown op %d\n", node->extra);

@@ -31,7 +31,15 @@
 %token PLUS MINUS MULT DIVI
 %token IF ELSE WHILE BREAK DEFINE
 %token FUNC FUNCCALL
-%right ADDR_OF            /* @a (前置は右結合・優先度低) */
+
+%left BITOR         /* | */
+%left BITXOR        /* ^ */
+%left BITAND        /* & */
+%left EQ LT GT LEQ GEQ /* 比較系 */
+%left LSHIFT RSHIFT /* << >> */
+%left PLUS MINUS    /* + - */
+%left MULT DIVI MOD /* * / % */
+%right ADDR_OF /* 単項 @ */
 %left  LSQ RSQ PTR_DEREF  /* a[i], p^ (後置は左結合・優先度高) */
 
 %token  <n>IDENT <ival>NUMBER 
@@ -171,73 +179,41 @@ Args
   ;
 
 Formula
-  :   Formula AddSub Term 
-  {
-    $$ = make_arith_node($1,$2,$3);
-  }
-  |   Term
-  {
-      $$ = $1;
-  }
-  ;
-
-Term
-  :   Term MulDiv Factor
-  {
-      $$ = make_arith_node($1,$2,$3);
-  }
-  |   Factor
-  {
-    $$ = $1;
-  }
-  ;
-
-Factor
-  :   Variable
-  {
-  $$ = $1;
-  }
-  | ADDR_OF Factor  /* @a : アドレス取得 */
-  {
-      $$ = make_unary_node(ND_ADDR, $2); // 新しいノードタイプ
-  }
-  |   LPR Formula RPR
-  {
-    $$ = $2;
-  }
-  ;
-
-AddSub
-  :   PLUS {$$ =OP_ADD;}
-  |   MINUS {$$ = OP_SUB;}
-  ;
-
-MulDiv
-  :   MULT  {$$ = OP_MUL;}
-  |   DIVI  {$$ = OP_DIV;}
+  : Formula PLUS Formula   { $$ = make_arith_node($1, OP_ADD, $3); }
+  | Formula MINUS Formula  { $$ = make_arith_node($1, OP_SUB, $3); }
+  | Formula MULT Formula   { $$ = make_arith_node($1, OP_MUL, $3); }
+  | Formula DIVI Formula   { $$ = make_arith_node($1, OP_DIV, $3); }
+  | Formula MOD Formula    { $$ = make_arith_node($1, OP_MOD, $3); }
+  | Formula LSHIFT Formula { $$ = make_arith_node($1, OP_LSHIFT, $3); }
+  | Formula RSHIFT Formula { $$ = make_arith_node($1, OP_RSHIFT, $3); }
+  | Formula BITAND Formula { $$ = make_arith_node($1, OP_AND, $3); }
+  | Formula BITXOR Formula { $$ = make_arith_node($1, OP_XOR, $3); }
+  | Formula BITOR Formula  { $$ = make_arith_node($1, OP_OR, $3); }
+  | ADDR_OF Formula        { $$ = make_unary_node(ND_ADDR, $2); }
+  | Variable               { $$ = $1; }
+  | LPR Formula RPR        { $$ = $2; }
   ;
 
 Variable
-  :   LeftValue{
+  : LeftValue {
     $$ = $1;
   }
-  |   NUMBER{
-  // [TODO] numようにする
+  | NUMBER {
     $$ = make_num_node($1);
   }
   ;
 
+/* 左辺値 (代入可能) */
 LeftValue
   : LeftValue LSQ Formula RSQ {
-      /* 左再帰で入れ子の ND_REF を作る: REF( REF(IDENT, i), j ) */
+      /* 配列参照 a[i] */
       $$ = make_array_ref_node($1, $3);
   }
   | IDENT {
       $$ = $1;
   }
-  |
-  Factor PTR_DEREF {
-      /* ポインタ参照 (p^) */
+  | Formula PTR_DEREF {
+      /* ポインタ参照 (p^) : FactorではなくFormulaを使うように変更 */
       $$ = make_unary_node(ND_DEREF, $1);
   }
   ;

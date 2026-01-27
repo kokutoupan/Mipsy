@@ -25,7 +25,18 @@ typedef enum {
 } NodeType;
 
 typedef enum { OP_EQ, OP_LT, OP_GT, OP_LEQ, OP_GEQ } CompOp;
-typedef enum { OP_ADD, OP_SUB, OP_MUL, OP_DIV } ArithOp;
+typedef enum {
+  OP_ADD,
+  OP_SUB,
+  OP_MUL,
+  OP_DIV,
+  OP_MOD,
+  OP_AND,
+  OP_OR,
+  OP_XOR,
+  OP_LSHIFT,
+  OP_RSHIFT
+} ArithOp;
 
 // -- 変数関係 --
 #define MAX_VARS 512
