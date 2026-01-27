@@ -110,6 +110,8 @@ int main(int argc, char *argv[]) {
 
     optimize_load_move(cl);
 
+    optimize_move_chain(cl);
+
     // nopの削除
     optimize_nop(cl);
   }

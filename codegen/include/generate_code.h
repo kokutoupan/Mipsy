@@ -13,3 +13,5 @@ void optimize_load_move(CodeList *list);
 void optimize_addiu_chain(CodeList *list);
 
 void optimize_branch(CodeList *list);
+
+void optimize_move_chain(CodeList *list);

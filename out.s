@@ -61,8 +61,7 @@ loop_head6:
     addiu $s0, $s0, 1
 loop_cond5:
     lw $t0, 0($fp)
-    addu $t1, $s0, $zero
-    sll $t1, $t1, 2
+    sll $t1, $s0, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     lw $t1, 12($fp)
@@ -90,8 +89,7 @@ IF_END12:
     addiu $s1, $s1, -1
 loop_cond8:
     lw $t0, 0($fp)
-    addu $t1, $s1, $zero
-    sll $t1, $t1, 2
+    sll $t1, $s1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     lw $t1, 12($fp)
@@ -102,8 +100,7 @@ loop_cond8:
     nop
 loop_end10:
     addu $t0, $s0, $zero
-    addu $t1, $s1, $zero
-    subu $t0, $t0, $t1
+    subu $t0, $t0, $s1
     sra $t0, $t0, 31
     beq $t0, $zero, IF_T13
     nop
@@ -114,26 +111,22 @@ IF_T13:
     nop
 IF_END14:
     lw $t0, 0($fp)
-    addu $t1, $s0, $zero
-    sll $t1, $t1, 2
+    sll $t1, $s0, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     nop
     sw $t0, 16($fp)
     lw $t0, 0($fp)
-    addu $t1, $s1, $zero
-    sll $t1, $t1, 2
+    sll $t1, $s1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     lw $t1, 0($fp)
-    addu $t2, $s0, $zero
-    sll $t2, $t2, 2
+    sll $t2, $s0, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
     lw $t0, 16($fp)
     lw $t1, 0($fp)
-    addu $t2, $s1, $zero
-    sll $t2, $t2, 2
+    sll $t2, $s1, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
 loop_cond2:
@@ -143,8 +136,7 @@ loop_cond2:
     nop
 loop_end4:
     lw $t0, 0($fp)
-    addu $t1, $s0, $zero
-    sll $t1, $t1, 2
+    sll $t1, $s0, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     nop
@@ -156,8 +148,7 @@ loop_end4:
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     lw $t1, 0($fp)
-    addu $t2, $s0, $zero
-    sll $t2, $t2, 2
+    sll $t2, $s0, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
     lw $t0, 16($fp)

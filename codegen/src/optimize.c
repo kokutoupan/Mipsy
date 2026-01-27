@@ -583,3 +583,82 @@ void optimize_branch(CodeList *list) {
     cur = cur->next;
   }
 }
+
+/* Move命令の伝播と統合
+ * 1. ADDU rd, rs, $zero (Move)
+ * 2. OP   ..., rd, ...  (Operation using rd)
+ */
+void optimize_move_chain(CodeList *list) {
+  if (!list || !list->head)
+    return;
+
+  Code *prev = NULL;
+  Code *cur = list->head;
+
+  while (cur != NULL) {
+    Code *next = cur->next;
+
+    if (cur->kind == CODE_INSN && next != NULL && next->kind == CODE_INSN) {
+      AsmInst *i1 = &cur->insn;  // Move命令
+      AsmInst *i2 = &next->insn; // 次の演算
+
+      // 1. i1 が Move 命令か判定
+      int is_move = 0;
+      MipsReg rd_move, rs_move;
+
+      // ADDU rd, rs, $zero
+      if (i1->code == ASM_ADDU && i1->op3.type == OP_REG &&
+          i1->op3.reg == R_ZERO) {
+        is_move = 1;
+        rd_move = i1->op1.reg;
+        rs_move = i1->op2.reg;
+      }
+      // OR rd, rs, $zero
+      else if (i1->code == ASM_OR && i1->op3.type == OP_REG &&
+               i1->op3.reg == R_ZERO) {
+        is_move = 1;
+        rd_move = i1->op1.reg;
+        rs_move = i1->op2.reg;
+      }
+      // ADDIU rd, rs, 0
+      else if ((i1->code == ASM_ADDIU || i1->code == ASM_ADDI) &&
+               i1->op3.type == OP_IMM && i1->op3.imm == 0) {
+        is_move = 1;
+        rd_move = i1->op1.reg;
+        rs_move = i1->op2.reg;
+      }
+
+      if (is_move) {
+        // 2. i2 が rd_move を入力として使っているかチェック
+        int use_in_op2 = (i2->op2.type == OP_REG && i2->op2.reg == rd_move);
+        int use_in_op3 = (i2->op3.type == OP_REG && i2->op3.reg == rd_move);
+
+        if (use_in_op2 || use_in_op3) {
+          // 安全性チェック:
+          // i2 で rd_move が上書きされる (出力先が同じ)、または後続で読まれない
+          int overwrite_self =
+              (i2->op1.type == OP_REG && i2->op1.reg == rd_move);
+
+          if (overwrite_self || !is_reg_read_later(next->next, rd_move)) {
+
+            *i1 = *i2;
+
+            if (use_in_op2)
+              i1->op2.reg = rs_move;
+            if (use_in_op3)
+              i1->op3.reg = rs_move;
+
+            // next (i2) をリストから削除
+            cur->next = next->next;
+            if (next == list->tail)
+              list->tail = cur;
+            free(next);
+            continue;
+          }
+        }
+      }
+    }
+    prev = cur;
+    cur = cur->next;
+  }
+}
