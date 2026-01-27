@@ -193,18 +193,14 @@ loop_end4:
     lw $a1, 4($fp)
     lw $t0, 16($fp)
     nop
-    addiu $t0, $t0, -1
-    addu $a2, $t0, $zero
+    addiu $a2, $t0, -1
     jal quicksort
     nop
     lw $a0, 0($fp)
     lw $t0, 16($fp)
     nop
-    addiu $t0, $t0, 1
-    addu $a1, $t0, $zero
-    lw $t0, 8($fp)
-    nop
-    addu $a2, $t0, $zero
+    addiu $a1, $t0, 1
+    lw $a2, 8($fp)
     jal quicksort
     nop
 IF_END1:
@@ -239,8 +235,7 @@ main:
     sw $t0, 32($fp)
     addi $t0, $zero, 8
     sw $t0, 36($fp)
-    addiu $t0, $fp, 0
-    addu $a0, $t0, $zero
+    addiu $a0, $fp, 0
     addi $a1, $zero, 0
     addi $a2, $zero, 9
     jal quicksort

@@ -1,5 +1,7 @@
 #include "internal.h"
 #include "mips_code.h"
+#include "mips_print.h"
+#include "mips_reg.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -200,6 +202,9 @@ void optimize_nop(CodeList *list) {
 /* レジスタがこの後で読まれるか */
 static int is_reg_read_later(Code *start_node, MipsReg reg) {
 
+  int is_stric = !(reg >= R_T0 && reg <= R_T7);
+
+  // $t0-$t7は，jumpの類にあるときには、破棄されるだろう
   for (Code *cur = start_node; cur != NULL; cur = cur->next) {
     if (cur->kind != CODE_INSN)
       continue;
@@ -245,14 +250,15 @@ static int is_reg_read_later(Code *start_node, MipsReg reg) {
       break;
     }
 
-    // 関数呼び出し、終了は良しとする
-    if (insn->code != ASM_JAL && insn->code != ASM_JALR) {
-      return 0;
-    }
+    // // 関数呼び出し、終了は良しとする
+    // if (insn->code != ASM_JAL && insn->code != ASM_JALR &&
+    //     insn->code != ASM_JR) {
+    //   return 0;
+    // }
 
-    // 分岐はめんどくさいから読まれるということで
+    // 分岐はめんどくさいからt_ならセーフほかだめ
     if (is_branch(insn->code))
-      return 1;
+      return is_stric;
   }
   return 0; // 最後まで読まれなかった
 }
@@ -406,6 +412,21 @@ void optimize_load_move(CodeList *list) {
   }
 }
 
+// 加算(ADDIU/ADDI/ADDU+zero)なら値を返す。それ以外ならフラグを下ろす
+static int get_add_imm(AsmInst *insn, int *is_valid) {
+  if (insn->code == ASM_ADDIU || insn->code == ASM_ADDI) {
+    *is_valid = 1;
+    return insn->op3.imm;
+  }
+  if (insn->code == ASM_ADDU && insn->op3.type == OP_REG &&
+      insn->op3.reg == R_ZERO) {
+    *is_valid = 1;
+    return 0; // +0 とみなす
+  }
+  *is_valid = 0;
+  return 0;
+};
+
 /* 連続する即値加算の統合 (Chain Optimization)
  * 1. ADDIU rd, rs, imm1
  * 2. ADDIU rd, rd, imm2
@@ -426,27 +447,33 @@ void optimize_addiu_chain(CodeList *list) {
       AsmInst *i1 = &cur->insn;
       AsmInst *i2 = &next->insn;
 
-      int is_addi1 = (i1->code == ASM_ADDIU || i1->code == ASM_ADDI);
-      int is_addi2 = (i2->code == ASM_ADDIU || i2->code == ASM_ADDI);
+      int valid1, valid2;
+      int imm1 = get_add_imm(i1, &valid1);
+      int imm2 = get_add_imm(i2, &valid2);
 
-      if (is_addi1 && is_addi2) {
+      if (valid1 && valid2) {
         // パターンマッチ:
         // i1: rd = rs + imm1
-        // i2: rd = rd + imm2  (i1の出力と同じレジスタに加算しているか)
+        // i2: rd = rd + imm2(or $zero)
 
         MipsReg rd1 = i1->op1.reg;
-        MipsReg rs1 = i1->op2.reg;
         // i1 の出力先(rd1) を i2 が 入出力(rd2, rs2) として使っているか
-        if (i2->op1.reg == rd1 && i2->op2.reg == rd1) {
+        if (i2->op2.reg == rd1 &&
+            (i2->op1.reg == rd1 || !is_reg_read_later(next->next, rd1))) {
 
-          int imm1 = i1->op3.imm;
-          int imm2 = i2->op3.imm;
           int new_imm = imm1 + imm2;
 
           // 16bit オーバーフローチェック
           if (new_imm >= -32768 && new_imm <= 32767) {
+            if (i1->code == ASM_ADDU) {
+              i1->code = ASM_ADDIU;
+              i1->op3.type = OP_IMM; // レジスタオペランドを即値オペランドに変更
+            }
 
             i1->op3.imm = new_imm;
+
+            // 出力に合わせる
+            i1->op1.reg = i2->op1.reg;
 
             // next (i2) をリストから削除
             cur->next = next->next; // curの次を nextの次へ飛ばす
