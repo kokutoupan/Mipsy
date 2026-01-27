@@ -161,8 +161,6 @@ void optimize_nop(CodeList *list) {
               remove = 0;
             }
           }
-          // もし次の命令がなければ(関数末尾など)、NOPは不要なので remove=1
-          // のまま
         }
       } else {
         // 直前の命令がない（関数の先頭など）なら、NOPは不要
@@ -230,12 +228,26 @@ static int is_reg_read_later(Code *start_node, MipsReg reg) {
     case ASM_SLLV:
     case ASM_SRLV:
     case ASM_SRAV:
+    case ASM_ADDI:
+    case ASM_ADDIU:
+    case ASM_ANDI:
+    case ASM_ORI:
+    case ASM_XORI:
+    case ASM_SLTI:
+    case ASM_SLTIU:
+    case ASM_LW:
+    case ASM_LB:
       if (insn->op1.type == OP_REG && insn->op1.reg == reg)
         return 0; // 上書きされた
       break;
     // div/multなどは HI/LO への書き込みなので注意（ここでは無視）
     default:
       break;
+    }
+
+    // 関数呼び出し、終了は良しとする
+    if (insn->code != ASM_JAL && insn->code != ASM_JALR) {
+      return 0;
     }
 
     // 分岐はめんどくさいから読まれるということで
@@ -277,9 +289,10 @@ void optimize_address(CodeList *list) {
         // レジスタの一致確認: i1の出力(op1) == i2のベース(op2)
         // i1: op1=rd, op2=rs, op3=imm
         // i2: op1=rt, op2=base, op3=offset
+        // さらに,7版より上(= T0から)
 
         if (i1->op1.type == OP_REG && i2->op2.type == OP_REG &&
-            i1->op1.reg == i2->op2.reg) {
+            i1->op1.reg == i2->op2.reg && i1->op1.reg > 7) {
 
           MipsReg rd = i1->op1.reg; // 中間レジスタ ($t1など)
 
@@ -289,10 +302,10 @@ void optimize_address(CodeList *list) {
           // 16bitに収まるか？ (-32768 ~ 32767)
           if (new_offset >= -32768 && new_offset <= 32767) {
 
-            int is_lw_addr_use = is_load(i2->code) &&
-                                 (i2->op2.reg == i2->op1.reg) &&
-                                 next->next->kind == CODE_INSN &&
-                                 next->next->insn.code == ASM_NOP;
+            int is_lw_addr_use =
+                is_load(i2->code) && (i2->op2.reg == i2->op1.reg) &&
+                next->next != NULL && next->next->kind == CODE_INSN &&
+                next->next->insn.code == ASM_NOP;
             if (is_lw_addr_use || !is_reg_read_later(next->next, rd)) {
 
               // i2 (LW/SW) のベースを i1のrs ($fp) に書き換え

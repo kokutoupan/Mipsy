@@ -45,8 +45,7 @@
 %token  <n>IDENT <ival>NUMBER 
 
 %type <comp>Comp
-%type <arith>MulDiv <arith>AddSub 
-%type <n>Variable <n>Factor <n>Term <n>Formula <n>LeftValue
+%type <n>Variable <n>Formula <n>LeftValue
 %type <n>CondSentence <n>LoopSentence  <n>AssignSentence <n>Sentence
 %type <n>CondExpr  <n>SentenceSet <n>DeclarationStatement <n>ValDeffineSection  <n>Idents <n>DimList
 %type <n>FunctionDef <n>Program <n>Functions

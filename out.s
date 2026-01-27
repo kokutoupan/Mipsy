@@ -43,32 +43,29 @@ IF_T0:
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
-    addiu $t1, $fp, 12
-    sw $t0, 0($t1)
+    nop
+    sw $t0, 12($fp)
     lw $t0, 4($fp)
     nop
     addiu $t0, $t0, -1
-    addiu $t1, $fp, 16
-    sw $t0, 0($t1)
+    sw $t0, 16($fp)
     lw $t0, 8($fp)
-    addiu $t1, $fp, 20
-    sw $t0, 0($t1)
+    nop
+    sw $t0, 20($fp)
     j loop_cond2
     nop
 loop_head3:
     lw $t0, 16($fp)
     nop
     addiu $t0, $t0, 1
-    addiu $t1, $fp, 16
-    sw $t0, 0($t1)
+    sw $t0, 16($fp)
     j loop_cond5
     nop
 loop_head6:
     lw $t0, 16($fp)
     nop
     addiu $t0, $t0, 1
-    addiu $t1, $fp, 16
-    sw $t0, 0($t1)
+    sw $t0, 16($fp)
 loop_cond5:
     lw $t0, 0($fp)
     lw $t1, 16($fp)
@@ -86,8 +83,7 @@ loop_end7:
     lw $t0, 20($fp)
     nop
     addiu $t0, $t0, -1
-    addiu $t1, $fp, 20
-    sw $t0, 0($t1)
+    sw $t0, 20($fp)
     j loop_cond8
     nop
 loop_head9:
@@ -105,8 +101,7 @@ IF_END12:
     lw $t0, 20($fp)
     nop
     addiu $t0, $t0, -1
-    addiu $t1, $fp, 20
-    sw $t0, 0($t1)
+    sw $t0, 20($fp)
 loop_cond8:
     lw $t0, 0($fp)
     lw $t1, 20($fp)
@@ -140,8 +135,8 @@ IF_END14:
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
-    addiu $t1, $fp, 24
-    sw $t0, 0($t1)
+    nop
+    sw $t0, 24($fp)
     lw $t0, 0($fp)
     lw $t1, 20($fp)
     nop
@@ -173,8 +168,8 @@ loop_end4:
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
-    addiu $t1, $fp, 24
-    sw $t0, 0($t1)
+    nop
+    sw $t0, 24($fp)
     lw $t0, 0($fp)
     lw $t1, 8($fp)
     nop
@@ -231,44 +226,25 @@ main:
     sw $fp, 40($sp)
     ori $fp, $sp, 0
     addi $t0, $zero, 10
-    addiu $t1, $fp, 0
-    sw $t0, 0($t1)
+    sw $t0, 0($fp)
     addi $t0, $zero, 4
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 4
-    sw $t0, 0($t1)
+    sw $t0, 4($fp)
     addi $t0, $zero, 2
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 8
-    sw $t0, 0($t1)
+    sw $t0, 8($fp)
     addi $t0, $zero, 7
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 12
-    sw $t0, 0($t1)
+    sw $t0, 12($fp)
     addi $t0, $zero, 3
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 16
-    sw $t0, 0($t1)
+    sw $t0, 16($fp)
     addi $t0, $zero, 5
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 20
-    sw $t0, 0($t1)
+    sw $t0, 20($fp)
     addi $t0, $zero, 9
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 24
-    sw $t0, 0($t1)
+    sw $t0, 24($fp)
     addi $t0, $zero, 10
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 28
-    sw $t0, 0($t1)
+    sw $t0, 28($fp)
     addi $t0, $zero, 1
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 32
-    sw $t0, 0($t1)
+    sw $t0, 32($fp)
     addi $t0, $zero, 8
-    addiu $t1, $fp, 0
-    addiu $t1, $t1, 36
-    sw $t0, 0($t1)
+    sw $t0, 36($fp)
     addiu $t0, $fp, 0
     addu $a0, $t0, $zero
     addi $a1, $zero, 0
