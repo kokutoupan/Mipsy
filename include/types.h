@@ -22,6 +22,7 @@ typedef enum {
   ND_IDENT, // 識別子
   ND_LIST,
   ND_BREAK,
+  ND_REG_DEF
 } NodeType;
 
 typedef enum { OP_EQ, OP_LT, OP_GT, OP_LEQ, OP_GEQ } CompOp;
@@ -54,6 +55,8 @@ typedef struct {
   int offset;   // スタックのオフセット or 任意の値
   int scope_id; // 属するスコープ
   int in_use;   // 使用中 = 1
+  // -1 ならスタック変数。0〜7 なら $s0〜$s7 に割り当て。
+  int reg_idx;
 } VarEntry;
 
 // スコープ情報を管理する構造体を追加

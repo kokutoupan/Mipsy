@@ -61,6 +61,16 @@ Node *make_ident_node(char *str) {
   return n;
 }
 
+Node *make_reg_define_node(Node *id) {
+  Node *n = malloc(sizeof(Node));
+
+  n->id = ND_REG_DEF;
+  n->node0 = id;
+  n->node1 = NULL;
+
+  return n;
+}
+
 Node *make_define_node(Node *id) {
   Node *n = malloc(sizeof(Node));
 

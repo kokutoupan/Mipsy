@@ -8,7 +8,7 @@
 // グローバル変数の実体
 VarTable vartable;
 CodeList codeList;
-
+static int used_s_regs = 0;
 VarType *make_type_from_dims(Node *dimlist);
 
 // 型のサイズ計算（配列のストライド計算用）
@@ -95,20 +95,32 @@ void def_var_array(Node *node) {
 }
 
 // 通常変数の定義
-void def_variable(Node *node) {
+void def_variable(Node *node, int is_reg) {
   if (node == NULL)
     return;
 
   if (node->id == ND_IDENT) {
-    var_add(&vartable, node->str);
+    // 変数テーブルに登録（この時点では初期化のみ）
+    VarEntry *ent = var_add(&vartable, node->str);
+
+    // 「reg指定あり」かつ「まだ$sレジスタ(8個)に空きがある」場合
+    if (is_reg && used_s_regs < 8) {
+      ent->reg_idx = used_s_regs++; // 0, 1, 2... と割り当て
+      ent->offset = 0;              // スタックオフセットは使わない
+      vartable.next_offset -= 4; // 打ち消し
+
+    } else {
+      // 従来通りスタックに割り当て
+      ent->reg_idx = -1;
+    }
     return;
   }
 
   if (node->id == ND_LIST) {
     // 左の要素（IDENT または LIST の先頭）を処理
-    def_variable(node->node0);
+    def_variable(node->node0, is_reg);
     // 右側（次の要素へ進む）
-    def_variable(node->node1);
+    def_variable(node->node1, is_reg);
     return;
   }
 }
@@ -120,7 +132,12 @@ void variable_declaration(Node *node) {
 
   // 1. 単体の変数定義 (ND_DEF) の場合
   if (node->id == ND_DEF) {
-    def_variable(node->node0);
+    def_variable(node->node0, 0);
+    return;
+  }
+
+  if (node->id == ND_REG_DEF) {
+    def_variable(node->node0, 1);
     return;
   }
 
@@ -142,34 +159,49 @@ void variable_declaration(Node *node) {
 }
 
 // 関数プロローグ (スタック確保)
-void func_head_code(CodeList *out, int size) {
+void func_head_code(CodeList *out, int size, int n_regs) {
+
+  int save_area_size = 8 + (n_regs * 4);
   // SPの確保 (ローカル変数サイズ + $fp(4) + $ra(4))
-  int frame_size = size + 8;
+  int frame_size = size + save_area_size;
 
   append_code(out, new_code_i(ASM_ADDIU, R_SP, R_SP, -frame_size));
 
-  // $raの退避 (sp + size + 4)
-  append_code(out, new_code_i(ASM_SW, R_RA, R_SP, size + 4));
+  // $raの退避 (sp + frame_size - 8 )
+  append_code(out, new_code_i(ASM_SW, R_RA, R_SP, frame_size - 4));
 
   // $fpの退避 (sp + size)
-  append_code(out, new_code_i(ASM_SW, R_FP, R_SP, size));
+  append_code(out, new_code_i(ASM_SW, R_FP, R_SP, frame_size - 8));
+
+  // $s レジスタの退避
+  // スタックの空いた隙間 (size の直後) に詰めていく
+  for (int i = 0; i < n_regs; i++) {
+    // R_S0 は mips_reg.h で定義されている定数 ($16)
+    append_code(out, new_code_i(ASM_SW, R_S0 + i, R_SP, size + (i * 4)));
+  }
 
   // $fp <- $sp (新しいフレームポインタの設定)
   append_code(out, new_code_i(ASM_ORI, R_FP, R_SP, 0));
 }
 
 // 関数エピローグ (スタック解放・復帰)
-void func_bottom_code(CodeList *out, int size) {
-  int frame_size = size + 8;
+void func_bottom_code(CodeList *out, int size, int n_regs) {
+  int save_area_size = 8 + (n_regs * 4);
+  int frame_size = size + save_area_size;
 
   // $sp <- $fp (スタックポインタを戻す)
   append_code(out, new_code_i(ASM_ORI, R_SP, R_FP, 0));
 
+  // ★ $s レジスタの復帰
+  for (int i = 0; i < n_regs; i++) {
+    append_code(out, new_code_i(ASM_LW, R_S0 + i, R_SP, size + (i * 4)));
+  }
+
   // $fpの復元
-  append_code(out, new_code_i(ASM_LW, R_FP, R_SP, size));
+  append_code(out, new_code_i(ASM_LW, R_FP, R_SP, size + save_area_size - 8));
 
   // $raの復元
-  append_code(out, new_code_i(ASM_LW, R_RA, R_SP, size + 4));
+  append_code(out, new_code_i(ASM_LW, R_RA, R_SP, size + save_area_size - 4));
 
   // スタック領域の解放
   append_code(out, new_code_i(ASM_ADDIU, R_SP, R_SP, frame_size));
@@ -189,6 +221,8 @@ void func_bottom_code(CodeList *out, int size) {
 void gen_function(Node *func_node) {
   if (func_node->id != ND_FUNC)
     return;
+
+  used_s_regs = 0;
 
   // 1. 関数ラベルの生成
   append_code(&codeList, new_label(func_node->str));
@@ -242,7 +276,7 @@ void gen_function(Node *func_node) {
 
   // 5. プロローグ生成
   int locals_size = (vartable.next_offset);
-  func_head_code(&codeList, locals_size);
+  func_head_code(&codeList, locals_size,used_s_regs);
 
   // 6. 引数の値を変数に保存
   // プロローグで $fp が設定された直後に実行する
@@ -256,7 +290,7 @@ void gen_function(Node *func_node) {
   gen_stmt_list(&codeList, func_node->node1);
 
   // 8. エピローグ生成
-  func_bottom_code(&codeList, locals_size);
+  func_bottom_code(&codeList, locals_size,used_s_regs);
 
   // デバッグ(変数の表示)
   if (opt_debug)

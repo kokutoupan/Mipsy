@@ -122,6 +122,25 @@ void gen_assign(CodeList *out, Node *node) {
   if (node == NULL || node->id != ND_ASSIGN)
     return;
 
+  // 左辺が変数(IDENT)かどうか
+  if (node->node0->id == ND_IDENT) {
+    VarEntry *ent = var_find(&vartable, node->node0->str);
+    // レジスタ
+    if (ent && ent->reg_idx != -1) {
+      // 右辺を評価して $t0 へ
+      Operand rhs = get_operand(out, node->node1, R_T0);
+      if (rhs.type == OP_IMM)
+        imm2reg(out, rhs, R_T0);
+      else if (rhs.reg != R_T0) {
+        append_code(out, new_code_r(ASM_ADDU, R_T0, rhs.reg, R_ZERO));
+      }
+
+      // MOVE $sX, $t0
+      append_code(out, new_code_r(ASM_ADDU, R_S0 + ent->reg_idx, R_T0, R_ZERO));
+      return;
+    }
+  }
+
   // 1. 右辺値を評価 ($t0)
   Operand rhs = get_operand(out, node->node1, R_T0);
   if (rhs.type == OP_IMM)

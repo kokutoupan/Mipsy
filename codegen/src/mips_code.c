@@ -94,6 +94,7 @@ VarEntry *var_add(VarTable *vt, char *name) {
   v->type = t;
   v->name = name;
   v->scope_id = current_scope_id;
+  v->reg_idx = -1;
 
   // オフセット決定
   v->offset = vt->next_offset;
@@ -134,6 +135,7 @@ VarEntry *var_add_array(VarTable *vt, char *name, VarType *vartype, int size) {
   v->scope_id = current_scope_id;
   v->offset = vt->next_offset;
 
+  v->reg_idx = -1;
   // 状態更新
   vt->next_offset += size; // 指定されたサイズ分(配列全体のサイズ)進める
   vt->n_vars++;            // 登録数 + 1

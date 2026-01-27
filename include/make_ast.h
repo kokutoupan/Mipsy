@@ -5,6 +5,7 @@
 Node *make_node(NodeType type);
 Node *make_ident_node(char *str);
 Node *make_define_node(Node *id);
+Node *make_reg_define_node(Node *id);
 Node *make_array_node(Node *id, Node *num);
 Node *make_array_ref_node(Node *id, Node *num);
 

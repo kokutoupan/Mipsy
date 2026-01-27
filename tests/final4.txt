@@ -1,8 +1,6 @@
 func main(){
-define N;
-define i;
-define j;
-define k;
+// define N,i,j,k; をレジスタのみにする
+reg N,i,j,k;
 array a[1001];
 N = 1000;
 i = 1;

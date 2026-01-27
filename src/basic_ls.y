@@ -31,6 +31,7 @@
 %token PLUS MINUS MULT DIVI
 %token IF ELSE WHILE BREAK DEFINE
 %token FUNC FUNCCALL
+%token REG
 
 %left BITOR         /* | */
 %left BITXOR        /* ^ */
@@ -111,6 +112,10 @@ DeclarationStatement
   | DEFINE Idents SEMIC
   {
     $$ = make_define_node($2);
+  }
+  | REG Idents SEMIC
+  {
+    $$ = make_reg_define_node($2);
   }
   ;
 

@@ -51,6 +51,7 @@ array           {return ARRAY;}
 func            {return FUNC;}
 funccall        {return FUNCCALL;}
 break           {return BREAK;}
+reg       { return REG;}
 
 {number}          {
   yylval.ival = atoi(yytext);

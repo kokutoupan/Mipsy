@@ -2,9 +2,7 @@ func main(){
 array matrix1[2][2];
 array matrix2[2][2];
 array matrix3[2][2];
-define i;
-define j;
-define k;
+reg i,j,k;
 matrix1[0][0] = 1;
 matrix1[0][1] = 2;
 matrix1[1][0] = 3;

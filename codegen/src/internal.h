@@ -28,7 +28,7 @@ void gen_while(CodeList *out, Node *node);
 void gen_call(CodeList *out, Node *node, MipsReg reg);
 
 // --- generate.c ---
-void def_variable(Node *node);
+void def_variable(Node *node,int is_reg);
 void def_var_array(Node *node);
 int calc_stride(VarType *t);
 

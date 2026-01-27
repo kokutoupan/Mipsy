@@ -45,6 +45,15 @@ Operand get_operand(CodeList *out, Node *node, MipsReg reg) {
     return op;
   }
 
+  if (node->id == ND_IDENT) {
+    VarEntry *ent = var_find(&vartable, node->str);
+    if (ent && ent->reg_idx != -1) {
+      // MOVE reg, $sX  (ADDU reg, $sX, $zero)
+      append_code(out, new_code_r(ASM_ADDU, reg, R_S0 + ent->reg_idx, R_ZERO));
+      return op;
+    }
+  }
+
   // 3. 左辺値 (変数, 配列, ポインタ参照) の「値」のロード
   if (node->id == ND_IDENT || node->id == ND_REF || node->id == ND_DEREF) {
     // アドレスを計算

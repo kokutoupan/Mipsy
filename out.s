@@ -23,6 +23,8 @@ quicksort:
     addiu $sp, $sp, -36
     sw $ra, 32($sp)
     sw $fp, 28($sp)
+    sw $s0, 20($sp)
+    sw $s1, 24($sp)
     ori $fp, $sp, 0
     sw $a0, 0($fp)
     sw $a1, 4($fp)
@@ -47,29 +49,19 @@ IF_T0:
     sw $t0, 12($fp)
     lw $t0, 4($fp)
     nop
-    addiu $t0, $t0, -1
-    sw $t0, 16($fp)
-    lw $t0, 8($fp)
-    nop
-    sw $t0, 20($fp)
+    addiu $s0, $t0, -1
+    lw $s1, 8($fp)
     j loop_cond2
     nop
 loop_head3:
-    lw $t0, 16($fp)
-    nop
-    addiu $t0, $t0, 1
-    sw $t0, 16($fp)
+    addiu $s0, $s0, 1
     j loop_cond5
     nop
 loop_head6:
-    lw $t0, 16($fp)
-    nop
-    addiu $t0, $t0, 1
-    sw $t0, 16($fp)
+    addiu $s0, $s0, 1
 loop_cond5:
     lw $t0, 0($fp)
-    lw $t1, 16($fp)
-    nop
+    addu $t1, $s0, $zero
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
@@ -80,14 +72,11 @@ loop_cond5:
     bne $t0, $zero, loop_head6
     nop
 loop_end7:
-    lw $t0, 20($fp)
-    nop
-    addiu $t0, $t0, -1
-    sw $t0, 20($fp)
+    addiu $s1, $s1, -1
     j loop_cond8
     nop
 loop_head9:
-    lw $t0, 20($fp)
+    addu $t0, $s1, $zero
     lw $t1, 4($fp)
     nop
     beq $t0, $t1, IF_T11
@@ -98,14 +87,10 @@ IF_T11:
     j loop_end10
     nop
 IF_END12:
-    lw $t0, 20($fp)
-    nop
-    addiu $t0, $t0, -1
-    sw $t0, 20($fp)
+    addiu $s1, $s1, -1
 loop_cond8:
     lw $t0, 0($fp)
-    lw $t1, 20($fp)
-    nop
+    addu $t1, $s1, $zero
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
@@ -116,9 +101,8 @@ loop_cond8:
     bne $t0, $zero, loop_head9
     nop
 loop_end10:
-    lw $t0, 16($fp)
-    lw $t1, 20($fp)
-    nop
+    addu $t0, $s0, $zero
+    addu $t1, $s1, $zero
     subu $t0, $t0, $t1
     sra $t0, $t0, 31
     beq $t0, $zero, IF_T13
@@ -130,29 +114,25 @@ IF_T13:
     nop
 IF_END14:
     lw $t0, 0($fp)
-    lw $t1, 16($fp)
-    nop
+    addu $t1, $s0, $zero
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     nop
-    sw $t0, 24($fp)
+    sw $t0, 16($fp)
     lw $t0, 0($fp)
-    lw $t1, 20($fp)
-    nop
+    addu $t1, $s1, $zero
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     lw $t1, 0($fp)
-    lw $t2, 16($fp)
-    nop
+    addu $t2, $s0, $zero
     sll $t2, $t2, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
-    lw $t0, 24($fp)
+    lw $t0, 16($fp)
     lw $t1, 0($fp)
-    lw $t2, 20($fp)
-    nop
+    addu $t2, $s1, $zero
     sll $t2, $t2, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
@@ -163,13 +143,12 @@ loop_cond2:
     nop
 loop_end4:
     lw $t0, 0($fp)
-    lw $t1, 16($fp)
-    nop
+    addu $t1, $s0, $zero
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     nop
-    sw $t0, 24($fp)
+    sw $t0, 16($fp)
     lw $t0, 0($fp)
     lw $t1, 8($fp)
     nop
@@ -177,12 +156,11 @@ loop_end4:
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
     lw $t1, 0($fp)
-    lw $t2, 16($fp)
-    nop
+    addu $t2, $s0, $zero
     sll $t2, $t2, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
-    lw $t0, 24($fp)
+    lw $t0, 16($fp)
     lw $t1, 0($fp)
     lw $t2, 8($fp)
     nop
@@ -191,20 +169,18 @@ loop_end4:
     sw $t0, 0($t1)
     lw $a0, 0($fp)
     lw $a1, 4($fp)
-    lw $t0, 16($fp)
-    nop
-    addiu $a2, $t0, -1
+    addiu $a2, $s0, -1
     jal quicksort
     nop
     lw $a0, 0($fp)
-    lw $t0, 16($fp)
-    nop
-    addiu $a1, $t0, 1
+    addiu $a1, $s0, 1
     lw $a2, 8($fp)
     jal quicksort
     nop
 IF_END1:
     ori $sp, $fp, 0
+    lw $s0, 20($sp)
+    lw $s1, 24($sp)
     lw $fp, 28($sp)
     lw $ra, 32($sp)
     addiu $sp, $sp, 36
