@@ -19,258 +19,266 @@ stop:                                           # if syscall return
         nop                             # (delay slot)                     
                                                                            
         .text   0x00001000              # 以降のコードを0x00001000から配置 
-main:
-    addiu $sp, $sp, -68
-    sw $ra, 64($sp)
-    sw $fp, 60($sp)
+quicksort:
+    addiu $sp, $sp, -36
+    sw $ra, 32($sp)
+    sw $fp, 28($sp)
     ori $fp, $sp, 0
-    addi $t0, $zero, 1
-    addiu $t1, $fp, 0
-    addi $t2, $zero, 0
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 0
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 2
-    addiu $t1, $fp, 0
-    addi $t2, $zero, 0
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 1
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 3
-    addiu $t1, $fp, 0
-    addi $t2, $zero, 1
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 0
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 4
-    addiu $t1, $fp, 0
-    addi $t2, $zero, 1
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 1
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 5
-    addiu $t1, $fp, 16
-    addi $t2, $zero, 0
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 0
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 6
-    addiu $t1, $fp, 16
-    addi $t2, $zero, 0
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 1
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 7
-    addiu $t1, $fp, 16
-    addi $t2, $zero, 1
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 0
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 8
-    addiu $t1, $fp, 16
-    addi $t2, $zero, 1
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    addi $t2, $zero, 1
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    addi $t0, $zero, 0
-    addiu $t1, $fp, 48
-    sw $t0, 0($t1)
-    j loop_cond0
+    sw $a0, 0($fp)
+    sw $a1, 4($fp)
+    sw $a2, 8($fp)
+    lw $t0, 8($fp)
+    lw $t1, 4($fp)
     nop
-loop_head1:
-    addi $t0, $zero, 0
-    addiu $t1, $fp, 52
-    sw $t0, 0($t1)
-    j loop_cond3
-    nop
-loop_head4:
-    addi $t0, $zero, 0
-    addiu $t1, $fp, 32
-    lw $t2, 48($fp)
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    lw $t2, 52($fp)
-    nop
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
-    lw $t0, 52($fp)
-    nop
-    addiu $t0, $t0, 1
-    addiu $t1, $fp, 52
-    sw $t0, 0($t1)
-loop_cond3:
-    lw $t0, 52($fp)
-    nop
-    addiu $t0, $t0, -2
+    subu $t0, $t1, $t0
     sra $t0, $t0, 31
-    bne $t0, $zero, loop_head4
+    bne $t0, $zero, IF_T0
     nop
-loop_end5:
-    lw $t0, 48($fp)
+    j IF_END1
     nop
-    addiu $t0, $t0, 1
-    addiu $t1, $fp, 48
-    sw $t0, 0($t1)
-loop_cond0:
-    lw $t0, 48($fp)
-    nop
-    addiu $t0, $t0, -2
-    sra $t0, $t0, 31
-    bne $t0, $zero, loop_head1
-    nop
-loop_end2:
-    addi $t0, $zero, 0
-    addiu $t1, $fp, 48
-    sw $t0, 0($t1)
-    j loop_cond6
-    nop
-loop_head7:
-    addi $t0, $zero, 0
-    addiu $t1, $fp, 52
-    sw $t0, 0($t1)
-    j loop_cond9
-    nop
-loop_head10:
-    addi $t0, $zero, 0
-    addiu $t1, $fp, 56
-    sw $t0, 0($t1)
-    j loop_cond12
-    nop
-loop_head13:
-    addiu $t0, $fp, 32
-    lw $t1, 48($fp)
-    ori $t2, $zero, 8
-    mult $t1, $t2
-    mflo $t1
-    addu $t0, $t0, $t1
-    lw $t1, 52($fp)
+IF_T0:
+    lw $t0, 0($fp)
+    lw $t1, 8($fp)
     nop
     sll $t1, $t1, 2
     addu $t0, $t0, $t1
     lw $t0, 0($t0)
-    addiu $t1, $fp, 0
-    lw $t2, 48($fp)
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    lw $t2, 56($fp)
+    addiu $t1, $fp, 12
+    sw $t0, 0($t1)
+    lw $t0, 4($fp)
     nop
-    sll $t2, $t2, 2
-    addu $t1, $t1, $t2
-    lw $t1, 0($t1)
-    addiu $t2, $fp, 16
-    lw $t3, 56($fp)
-    ori $t4, $zero, 8
-    mult $t3, $t4
-    mflo $t3
-    addu $t2, $t2, $t3
-    lw $t3, 52($fp)
+    addiu $t0, $t0, -1
+    addiu $t1, $fp, 16
+    sw $t0, 0($t1)
+    lw $t0, 8($fp)
+    addiu $t1, $fp, 20
+    sw $t0, 0($t1)
+    j loop_cond2
     nop
-    sll $t3, $t3, 2
-    addu $t2, $t2, $t3
-    lw $t2, 0($t2)
+loop_head3:
+    lw $t0, 16($fp)
     nop
-    multu $t1, $t2
-    mflo $t1
+    addiu $t0, $t0, 1
+    addiu $t1, $fp, 16
+    sw $t0, 0($t1)
+    j loop_cond5
+    nop
+loop_head6:
+    lw $t0, 16($fp)
+    nop
+    addiu $t0, $t0, 1
+    addiu $t1, $fp, 16
+    sw $t0, 0($t1)
+loop_cond5:
+    lw $t0, 0($fp)
+    lw $t1, 16($fp)
+    nop
+    sll $t1, $t1, 2
     addu $t0, $t0, $t1
-    addiu $t1, $fp, 32
-    lw $t2, 48($fp)
-    ori $t3, $zero, 8
-    mult $t2, $t3
-    mflo $t2
-    addu $t1, $t1, $t2
-    lw $t2, 52($fp)
+    lw $t0, 0($t0)
+    lw $t1, 12($fp)
+    nop
+    subu $t0, $t0, $t1
+    sra $t0, $t0, 31
+    bne $t0, $zero, loop_head6
+    nop
+loop_end7:
+    lw $t0, 20($fp)
+    nop
+    addiu $t0, $t0, -1
+    addiu $t1, $fp, 20
+    sw $t0, 0($t1)
+    j loop_cond8
+    nop
+loop_head9:
+    lw $t0, 20($fp)
+    lw $t1, 4($fp)
+    nop
+    beq $t0, $t1, IF_T11
+    nop
+    j IF_END12
+    nop
+IF_T11:
+    j loop_end10
+    nop
+IF_END12:
+    lw $t0, 20($fp)
+    nop
+    addiu $t0, $t0, -1
+    addiu $t1, $fp, 20
+    sw $t0, 0($t1)
+loop_cond8:
+    lw $t0, 0($fp)
+    lw $t1, 20($fp)
+    nop
+    sll $t1, $t1, 2
+    addu $t0, $t0, $t1
+    lw $t0, 0($t0)
+    lw $t1, 12($fp)
+    nop
+    subu $t0, $t1, $t0
+    sra $t0, $t0, 31
+    bne $t0, $zero, loop_head9
+    nop
+loop_end10:
+    lw $t0, 16($fp)
+    lw $t1, 20($fp)
+    nop
+    subu $t0, $t0, $t1
+    sra $t0, $t0, 31
+    beq $t0, $zero, IF_T13
+    nop
+    j IF_END14
+    nop
+IF_T13:
+    j loop_end4
+    nop
+IF_END14:
+    lw $t0, 0($fp)
+    lw $t1, 16($fp)
+    nop
+    sll $t1, $t1, 2
+    addu $t0, $t0, $t1
+    lw $t0, 0($t0)
+    addiu $t1, $fp, 24
+    sw $t0, 0($t1)
+    lw $t0, 0($fp)
+    lw $t1, 20($fp)
+    nop
+    sll $t1, $t1, 2
+    addu $t0, $t0, $t1
+    lw $t0, 0($t0)
+    lw $t1, 0($fp)
+    lw $t2, 16($fp)
     nop
     sll $t2, $t2, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
-    lw $t0, 56($fp)
+    lw $t0, 24($fp)
+    lw $t1, 0($fp)
+    lw $t2, 20($fp)
+    nop
+    sll $t2, $t2, 2
+    addu $t1, $t1, $t2
+    sw $t0, 0($t1)
+loop_cond2:
+    addi $t0, $zero, 1
+    addi $t1, $zero, 1
+    beq $t0, $t1, loop_head3
+    nop
+loop_end4:
+    lw $t0, 0($fp)
+    lw $t1, 16($fp)
+    nop
+    sll $t1, $t1, 2
+    addu $t0, $t0, $t1
+    lw $t0, 0($t0)
+    addiu $t1, $fp, 24
+    sw $t0, 0($t1)
+    lw $t0, 0($fp)
+    lw $t1, 8($fp)
+    nop
+    sll $t1, $t1, 2
+    addu $t0, $t0, $t1
+    lw $t0, 0($t0)
+    lw $t1, 0($fp)
+    lw $t2, 16($fp)
+    nop
+    sll $t2, $t2, 2
+    addu $t1, $t1, $t2
+    sw $t0, 0($t1)
+    lw $t0, 24($fp)
+    lw $t1, 0($fp)
+    lw $t2, 8($fp)
+    nop
+    sll $t2, $t2, 2
+    addu $t1, $t1, $t2
+    sw $t0, 0($t1)
+    lw $t0, 0($fp)
+    nop
+    addu $a0, $t0, $zero
+    lw $t0, 4($fp)
+    nop
+    addu $a1, $t0, $zero
+    lw $t0, 16($fp)
+    nop
+    addiu $t0, $t0, -1
+    addu $a2, $t0, $zero
+    jal quicksort
+    nop
+    lw $t0, 0($fp)
+    nop
+    addu $a0, $t0, $zero
+    lw $t0, 16($fp)
     nop
     addiu $t0, $t0, 1
-    addiu $t1, $fp, 56
-    sw $t0, 0($t1)
-loop_cond12:
-    lw $t0, 56($fp)
+    addu $a1, $t0, $zero
+    lw $t0, 8($fp)
     nop
-    addiu $t0, $t0, -2
-    sra $t0, $t0, 31
-    bne $t0, $zero, loop_head13
+    addu $a2, $t0, $zero
+    jal quicksort
     nop
-loop_end14:
-    lw $t0, 52($fp)
-    nop
-    addiu $t0, $t0, 1
-    addiu $t1, $fp, 52
-    sw $t0, 0($t1)
-loop_cond9:
-    lw $t0, 52($fp)
-    nop
-    addiu $t0, $t0, -2
-    sra $t0, $t0, 31
-    bne $t0, $zero, loop_head10
-    nop
-loop_end11:
-    lw $t0, 48($fp)
-    nop
-    addiu $t0, $t0, 1
-    addiu $t1, $fp, 48
-    sw $t0, 0($t1)
-loop_cond6:
-    lw $t0, 48($fp)
-    nop
-    addiu $t0, $t0, -2
-    sra $t0, $t0, 31
-    bne $t0, $zero, loop_head7
-    nop
-loop_end8:
+IF_END1:
     ori $sp, $fp, 0
-    lw $fp, 60($sp)
-    lw $ra, 64($sp)
-    addiu $sp, $sp, 68
+    lw $fp, 28($sp)
+    lw $ra, 32($sp)
+    addiu $sp, $sp, 36
+    jr $ra
+    nop
+main:
+    addiu $sp, $sp, -48
+    sw $ra, 44($sp)
+    sw $fp, 40($sp)
+    ori $fp, $sp, 0
+    addi $t0, $zero, 10
+    addiu $t1, $fp, 0
+    sw $t0, 0($t1)
+    addi $t0, $zero, 4
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 4
+    sw $t0, 0($t1)
+    addi $t0, $zero, 2
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 8
+    sw $t0, 0($t1)
+    addi $t0, $zero, 7
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 12
+    sw $t0, 0($t1)
+    addi $t0, $zero, 3
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 16
+    sw $t0, 0($t1)
+    addi $t0, $zero, 5
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 20
+    sw $t0, 0($t1)
+    addi $t0, $zero, 9
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 24
+    sw $t0, 0($t1)
+    addi $t0, $zero, 10
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 28
+    sw $t0, 0($t1)
+    addi $t0, $zero, 1
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 32
+    sw $t0, 0($t1)
+    addi $t0, $zero, 8
+    addiu $t1, $fp, 0
+    addiu $t1, $t1, 36
+    sw $t0, 0($t1)
+    addiu $t0, $fp, 0
+    addu $a0, $t0, $zero
+    addi $a1, $zero, 0
+    addi $a2, $zero, 9
+    jal quicksort
+    nop
+    ori $sp, $fp, 0
+    lw $fp, 40($sp)
+    lw $ra, 44($sp)
+    addiu $sp, $sp, 48
     jr $ra
     nop
     

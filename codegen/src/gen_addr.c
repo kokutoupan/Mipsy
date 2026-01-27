@@ -87,34 +87,66 @@ MipsReg gen_addr(CodeList *out, Node *node, MipsReg reg) {
       }
     }
 
-    // インデックス加算
+    // 定数のオフセット
+    int const_offset = 0;
+    // インデックス加算ループ
     for (int k = depth - 1; k >= 0; k--) {
       Node *ref_node = refs[k];
+      Node *idx_node = ref_node->node1; // インデックスのノード
 
-      // インデックス値を reg+1 に計算
-      Operand idx = get_operand(out, ref_node->node1, reg + 1);
-      if (idx.type == OP_IMM)
-        imm2reg(out, idx, reg + 1);
-
-      // --- ストライド（幅）の決定 ---
+      // --- ストライド計算と型更新 ---
       int stride;
       if (type->kind == VarArray) {
         stride = calc_stride(type);
-        type = type->base; // 型を一段階掘り下げる
+        type = type->base;
       } else {
         stride = 4;
       }
 
-      // reg = reg + idx * stride
-      if (stride == 4) {
-        append_code(out, new_code_i(ASM_SLL, reg + 1, reg + 1, 2));
+      // ★定数(ND_NUM)なら、コード生成せずにオフセットに足し込むだけ！
+      if (idx_node->id == ND_NUM) {
+        const_offset += idx_node->extra * stride;
+        continue; // 次の次元へ
+      }
+
+      // 変数の場合はコード生成して加算
+      Operand idx = get_operand(out, idx_node, reg + 1);
+      if (idx.type == OP_IMM) {
+        const_offset += idx.imm * stride;
+        continue;
+      }
+
+      // 2の累乗最適化 (Shift vs Mult)
+      int shift = get_power_of_2(stride);
+      if (shift >= 0) {
+        if (shift > 0) {
+          append_code(out, new_code_i(ASM_SLL, reg + 1, idx.reg, shift));
+        }
+        if (shift == 0 && idx.reg != reg + 1) {
+          append_code(out, new_code_r(ASM_ADDU, reg + 1, idx.reg, R_ZERO));
+        }
       } else {
         append_code(out, new_code_i(ASM_ORI, reg + 2, R_ZERO, stride));
-        append_code(out, new_code_r(ASM_MULT, reg + 1, reg + 1, reg + 2));
+        append_code(out, new_code_r(ASM_MULT, idx.reg, idx.reg, reg + 2));
         append_code(out, new_code_r(ASM_MFLO, reg + 1, reg + 1, reg + 1));
       }
+
+      // ベースに加算
       append_code(out, new_code_r(ASM_ADDU, reg, reg, reg + 1));
     }
+
+    // ★最後に累積した定数オフセットを加算
+    if (const_offset != 0) {
+      // 16bit即値に収まるなら ADDIU
+      if (const_offset >= -32768 && const_offset <= 32767) {
+        append_code(out, new_code_i(ASM_ADDIU, reg, reg, const_offset));
+      } else {
+        // 大きすぎる場合は LI を使う
+        append_code(out, new_code_i(ASM_LI, reg + 1, R_ZERO, const_offset));
+        append_code(out, new_code_r(ASM_ADDU, reg, reg, reg + 1));
+      }
+    }
+
     return reg;
   }
 

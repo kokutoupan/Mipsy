@@ -102,6 +102,7 @@ int main(int argc, char *argv[]) {
 
     // addressの最適化
     optimize_address(cl);
+    optimize_address(cl);
 
     // nopの削除
     optimize_nop(cl);

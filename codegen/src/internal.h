@@ -31,3 +31,5 @@ void gen_call(CodeList *out, Node *node, MipsReg reg);
 void def_variable(Node *node);
 void def_var_array(Node *node);
 int calc_stride(VarType *t);
+
+int get_power_of_2(int x);

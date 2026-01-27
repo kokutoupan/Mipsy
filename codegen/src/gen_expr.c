@@ -1,6 +1,23 @@
 #include "internal.h"
+#include "mips_code.h"
 #include <stdio.h>
 #include <stdlib.h>
+
+/* x が 2^n なら n を返す。そうでなければ -1 を返す */
+int get_power_of_2(int x) {
+  if (x <= 0)
+    return -1;
+  // ビットが1つだけ立っているかチェック: (x & (x-1)) == 0
+  if ((x & (x - 1)) != 0)
+    return -1;
+
+  int n = 0;
+  while ((x & 1) == 0) {
+    x >>= 1;
+    n++;
+  }
+  return n;
+}
 
 Operand imm2reg(CodeList *out, Operand op, MipsReg reg) {
   if (op.type == OP_REG)
@@ -59,6 +76,8 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
   Operand op2 = get_operand(out, node->node1, reg + 1);
 
   AsmCode asmc;
+  int shift;
+
   switch (node->extra) {
   case OP_ADD:
     if (op2.type == OP_REG)
@@ -79,8 +98,12 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
     break;
 
   case OP_MUL:
-    if (op2.type == OP_IMM)
+    if (op2.type == OP_IMM) {
+      if ((shift = get_power_of_2(op2.imm)) > 0) {
+        append_code(out, new_code(ASM_SLL, op1, op1, op2));
+      }
       op2 = imm2reg(out, op2, reg + 1);
+    }
     append_code(out, new_code(ASM_MULTU, op1, op1, op2));
     append_code(out, new_code_r(ASM_MFLO, reg, reg, reg));
     break;
