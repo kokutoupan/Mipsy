@@ -71,11 +71,20 @@ MipsReg gen_addr(CodeList *out, Node *node, MipsReg reg) {
         append_code(out, new_code_i(ASM_ADDIU, reg, R_FP, ent->offset));
       }
     } else {
-      // ポインタ(VarInt):
-      // 実体は別の場所にあり、スタックにはアドレスが入っている
-      // -> FP + offset の中身(アドレス)をロードする
-      append_code(out, new_code_i(ASM_LW, reg, R_FP, ent->offset));
-      append_code(out, new_code0(ASM_NOP));
+      if (ent->scope_id == 0) {
+        // グローバルポインタ:
+        // 1. ポインタ変数自体の場所を取得 (la)
+        // 2. その中身（指し先のアドレス）をロード (lw)
+        append_code(out, new_code_la(reg, ent->name)); // reg = &p
+        append_code(out, new_code0(ASM_NOP));
+        append_code(out, new_code_i(ASM_LW, reg, reg, 0)); // reg = *p
+        append_code(out, new_code0(ASM_NOP));
+      } else {
+        // ローカルポインタ:
+        // スタック上の変数の中身（指し先のアドレス）をロード
+        append_code(out, new_code_i(ASM_LW, reg, R_FP, ent->offset));
+        append_code(out, new_code0(ASM_NOP));
+      }
     }
 
     // インデックス加算

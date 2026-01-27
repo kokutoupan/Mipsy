@@ -15,4 +15,5 @@ while (i < 2) {
     sum = sum + foge[i];
     i = i + 1;
 }
+i = @foge;
 }

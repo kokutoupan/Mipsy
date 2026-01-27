@@ -9,6 +9,8 @@
 VarTable vartable;
 CodeList codeList;
 
+VarType *make_type_from_dims(Node *dimlist);
+
 // 型のサイズ計算（配列のストライド計算用）
 int calc_stride(VarType *t) {
   if (t == NULL)
@@ -37,22 +39,21 @@ void gen_global_vars(Node *node, CodeList *codeList) {
 
     var_add(&vartable, name);
   }
-  // 配列定義 (define arr[10];)
+  // 配列定義 (array arr[10];)
   else if (node->id == ND_DEFARRAY) {
     char *name = node->node0->str;
     int size = node->node1->extra;
-    int byte_size = size * 4;
+
+    // 次元リストから型情報を生成 (多次元対応)
+    VarType *type = make_type_from_dims(node->node1);
+
+    int byte_size = sizeof_type(type);
 
     append_code(codeList, new_label(name));                        // ラベル:
     append_code(codeList, new_code_dir_i(ASM_d_SPACE, byte_size)); // .space 40
 
     // 型情報の登録
-    VarType *t = malloc(sizeof(VarType));
-    t->kind = VarArray;
-    t->len = size;
-    t->base = malloc(sizeof(VarType));
-    t->base->kind = VarInt;
-    var_add_array(&vartable, name, t, byte_size);
+    var_add_array(&vartable, name, type, byte_size);
   }
 }
 
@@ -195,7 +196,7 @@ void gen_function(Node *func_node) {
   // 2. 変数テーブル（スコープ）の初期化
   // 関数ごとにローカル変数はリセットされる
   // var_table_init(&vartable);
-
+  vartable.next_offset = 0;
   enter_scope(&vartable);
 
   // 3. 引数の登録
