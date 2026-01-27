@@ -322,8 +322,6 @@ void optimize_address(CodeList *list) {
               else
                 list->head = next;
 
-              cur = next;
-
               free(to_delete);
               continue;
             }
@@ -333,6 +331,228 @@ void optimize_address(CodeList *list) {
     }
 
     prev = cur;
+    cur = cur->next;
+  }
+}
+
+/* Load -> Move の統合
+ * LW rt, off(base)
+ * NOP
+ * ADDU rd, rt, $zero (move)
+ *
+ * ==> LW rd, off(base)
+ */
+void optimize_load_move(CodeList *list) {
+  if (!list || !list->head)
+    return;
+
+  Code *cur = list->head;
+
+  while (cur != NULL) {
+    // LW
+    if (cur->kind == CODE_INSN && is_load(cur->insn.code)) {
+
+      Code *nop = cur->next;
+      Code *move = (nop) ? nop->next : NULL;
+
+      // NOP,MOVE判定
+      if (nop && nop->kind == CODE_INSN && nop->insn.code == ASM_NOP && move &&
+          move->kind == CODE_INSN) {
+
+        AsmInst *i_lw = &cur->insn;
+        AsmInst *i_mv = &move->insn;
+
+        // ムーブ命令か判定 (ADDU rd, rs, $zero とか)
+        int is_move = 0;
+        MipsReg dst_reg, src_reg;
+
+        // addu rd, rs, zero
+        if (i_mv->code == ASM_ADDU && i_mv->op3.reg == R_ZERO) {
+          dst_reg = i_mv->op1.reg;
+          src_reg = i_mv->op2.reg;
+          is_move = 1;
+        }
+        // or rd, rs, zero
+        else if (i_mv->code == ASM_OR && i_mv->op3.reg == R_ZERO) {
+          dst_reg = i_mv->op1.reg;
+          src_reg = i_mv->op2.reg;
+          is_move = 1;
+        }
+
+        if (is_move && i_lw->op1.reg == src_reg) {
+
+          // MoveのdstがLWのbaseでない場合のみ適用
+          int base_reg_conflict =
+              (i_lw->op2.type == OP_REG && i_lw->op2.reg == dst_reg);
+
+          if (!base_reg_conflict && !is_reg_read_later(move->next, src_reg)) {
+
+            // LW の出力先を Moveのdst に書き換え
+            i_lw->op1.reg = dst_reg;
+
+            // Move命令を削除
+            nop->next = move->next;
+            if (move == list->tail)
+              list->tail = nop;
+            free(move);
+
+            cur = nop;
+            continue;
+          }
+        }
+      }
+    }
+    cur = cur->next;
+  }
+}
+
+/* 連続する即値加算の統合 (Chain Optimization)
+ * 1. ADDIU rd, rs, imm1
+ * 2. ADDIU rd, rd, imm2
+ * ==> ADDIU rd, rs, (imm1 + imm2)
+ */
+void optimize_addiu_chain(CodeList *list) {
+  if (!list || !list->head)
+    return;
+
+  Code *prev = NULL;
+  Code *cur = list->head;
+
+  while (cur != NULL) {
+    Code *next = cur->next;
+
+    // cur と next が共に ADDIU (または ADDI) かチェック
+    if (cur->kind == CODE_INSN && next != NULL && next->kind == CODE_INSN) {
+      AsmInst *i1 = &cur->insn;
+      AsmInst *i2 = &next->insn;
+
+      int is_addi1 = (i1->code == ASM_ADDIU || i1->code == ASM_ADDI);
+      int is_addi2 = (i2->code == ASM_ADDIU || i2->code == ASM_ADDI);
+
+      if (is_addi1 && is_addi2) {
+        // パターンマッチ:
+        // i1: rd = rs + imm1
+        // i2: rd = rd + imm2  (i1の出力と同じレジスタに加算しているか)
+
+        MipsReg rd1 = i1->op1.reg;
+        MipsReg rs1 = i1->op2.reg;
+        // i1 の出力先(rd1) を i2 が 入出力(rd2, rs2) として使っているか
+        if (i2->op1.reg == rd1 && i2->op2.reg == rd1) {
+
+          int imm1 = i1->op3.imm;
+          int imm2 = i2->op3.imm;
+          int new_imm = imm1 + imm2;
+
+          // 16bit オーバーフローチェック
+          if (new_imm >= -32768 && new_imm <= 32767) {
+
+            i1->op3.imm = new_imm;
+
+            // next (i2) をリストから削除
+            cur->next = next->next; // curの次を nextの次へ飛ばす
+            if (next == list->tail)
+              list->tail = cur;
+            free(next);
+
+            continue;
+          }
+        }
+      }
+    }
+
+    // 統合が起きなかった場合のみ、ポインタを進める
+    prev = cur;
+    cur = cur->next;
+  }
+}
+
+/* 定数分岐の畳み込み
+ * 1. LI t0, 1
+ * 2. LI t1, 1
+ * 3. BEQ t0, t1, Label
+ */
+void optimize_branch(CodeList *list) {
+  if (!list || !list->head)
+    return;
+
+  Code *prev2 = NULL; // 2つ前の命令
+  Code *prev1 = NULL; // 1つ前の命令
+  Code *cur = list->head;
+
+  while (cur != NULL) {
+
+    // 現在が条件分岐 (BEQ, BNE) かチェック
+    if (cur->kind == CODE_INSN &&
+        (cur->insn.code == ASM_BEQ || cur->insn.code == ASM_BNE)) {
+
+      // 直前2つが命令であり、定数セット(ADDI reg, zero, imm)かチェック
+      if (prev1 && prev1->kind == CODE_INSN && prev2 &&
+          prev2->kind == CODE_INSN) {
+
+        AsmInst *b_insn = &cur->insn; // Branch
+        AsmInst *i1 = &prev1->insn;   // 直前 ($t1 = 1)
+        AsmInst *i2 = &prev2->insn;   // 2個前 ($t0 = 1)
+
+        // Branchのオペランド (op1, op2)
+        MipsReg b_r1 = b_insn->op1.reg;
+        MipsReg b_r2 = b_insn->op2.reg;
+
+        // 定数ロード
+        int is_const1 = (i1->code == ASM_ADDI || i1->code == ASM_ADDIU) &&
+                        i1->op2.reg == R_ZERO;
+        int is_const2 = (i2->code == ASM_ADDI || i2->code == ASM_ADDIU) &&
+                        i2->op2.reg == R_ZERO;
+
+        if (is_const1 && is_const2) {
+
+          int val1 = 0, val2 = 0;
+          int matched = 0;
+
+          if (i1->op1.reg == b_r1 && i2->op1.reg == b_r2) {
+            val1 = i1->op3.imm; // b_r1の値
+            val2 = i2->op3.imm; // b_r2の値
+            matched = 1;
+          } else if (i1->op1.reg == b_r2 && i2->op1.reg == b_r1) {
+            val1 = i2->op3.imm; // b_r1の値
+            val2 = i1->op3.imm; // b_r2の値
+            matched = 1;
+          }
+
+          if (matched) {
+            int cond = 0;
+            if (b_insn->code == ASM_BEQ)
+              cond = (val1 == val2);
+            if (b_insn->code == ASM_BNE)
+              cond = (val1 != val2);
+
+            if (cond) {
+
+              char *label = b_insn->op3.label; // BEQのラベル
+
+              b_insn->code = ASM_J;
+              b_insn->op1.type = OP_LABEL;
+              b_insn->op1.label = label;
+              // op2, op3 は不要になる
+              b_insn->op2.type = OP_REG;
+              b_insn->op2.reg = R_ZERO; // 安全のためクリア
+            } else {
+              // 条件不成立 ->  命令削除
+              Code *next = cur->next;
+              prev1->next = next;
+              if (cur == list->tail)
+                list->tail = prev1;
+              free(cur);
+
+              cur = next;
+              continue;
+            }
+          }
+        }
+      }
+    }
+
+    prev2 = prev1;
+    prev1 = cur;
     cur = cur->next;
   }
 }

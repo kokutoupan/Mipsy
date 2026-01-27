@@ -100,9 +100,15 @@ int main(int argc, char *argv[]) {
   // コード最適化(nopの削除)
   if (opt_optimize >= 1) {
 
+    optimize_branch(cl);
+
+    // addi の畳み込み
+    optimize_addiu_chain(cl);
+
     // addressの最適化
     optimize_address(cl);
-    optimize_address(cl);
+
+    optimize_load_move(cl);
 
     // nopの削除
     optimize_nop(cl);

@@ -159,7 +159,7 @@ IF_END14:
 loop_cond2:
     addi $t0, $zero, 1
     addi $t1, $zero, 1
-    beq $t0, $t1, loop_head3
+    j loop_head3
     nop
 loop_end4:
     lw $t0, 0($fp)
@@ -189,21 +189,15 @@ loop_end4:
     sll $t2, $t2, 2
     addu $t1, $t1, $t2
     sw $t0, 0($t1)
-    lw $t0, 0($fp)
-    nop
-    addu $a0, $t0, $zero
-    lw $t0, 4($fp)
-    nop
-    addu $a1, $t0, $zero
+    lw $a0, 0($fp)
+    lw $a1, 4($fp)
     lw $t0, 16($fp)
     nop
     addiu $t0, $t0, -1
     addu $a2, $t0, $zero
     jal quicksort
     nop
-    lw $t0, 0($fp)
-    nop
-    addu $a0, $t0, $zero
+    lw $a0, 0($fp)
     lw $t0, 16($fp)
     nop
     addiu $t0, $t0, 1
