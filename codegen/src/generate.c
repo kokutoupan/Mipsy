@@ -265,7 +265,7 @@ void gen_function(Node *func_node) {
   leave_scope(&vartable);
 }
 
-void generate_code(Node *node) {
+CodeList *generate_code(Node *node) {
   init_code_list(&codeList);
 
   var_table_init(&vartable);
@@ -303,4 +303,6 @@ void generate_code(Node *node) {
   append_code(&codeList, new_code0(ASM_d_DATA));
 
   concat_code_list(&codeList, &global_data);
+
+  return &codeList;
 }

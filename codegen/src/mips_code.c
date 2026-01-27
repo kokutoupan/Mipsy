@@ -56,7 +56,6 @@ void leave_scope(VarTable *vt) {
 
   vt->scope_top--;
 
-  // ★ここが重要: 状態を「巻き戻す」だけで削除完了
   vt->next_offset = saved_offset; // オフセットを戻す（スタック領域再利用）
   vt->n_vars = saved_var_idx; // 変数リストの末尾ポインタを戻す（変数の破棄）
 }
@@ -93,7 +92,7 @@ VarEntry *var_add(VarTable *vt, char *name) {
   t->base = NULL;
 
   v->type = t;
-  v->name = name; // strdup(name) でも良いが、ASTの寿命と同じならそのままでOK
+  v->name = name;
   v->scope_id = current_scope_id;
 
   // オフセット決定
@@ -115,12 +114,10 @@ VarEntry *var_add_array(VarTable *vt, char *name, VarType *vartype, int size) {
   }
 
   // 現在のスコープ情報の取得
-  // (types.h の修正で scope_stack は struct ScopeInfo になっている前提)
   int current_scope_id = vt->scope_stack[vt->scope_top].id;
   int start_idx = vt->scope_stack[vt->scope_top].saved_var_idx;
 
   // 2. 現在のスコープ内での重複チェック
-  // (今のスコープの開始位置から後ろだけを探せばよい)
   for (int i = start_idx; i < vt->n_vars; i++) {
     if (strcmp(vt->vars[i].name, name) == 0) {
       fprintf(stderr, "error: variable '%s' already exists in this scope\n",

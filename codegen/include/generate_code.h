@@ -1,4 +1,9 @@
 #pragma once
 #include "../include/types.h"
+#include "mips_code.h"
 
-void generate_code(Node *node);
+CodeList *generate_code(Node *node);
+
+void optimize_nop(CodeList *list);
+
+void optimize_address(CodeList *list);

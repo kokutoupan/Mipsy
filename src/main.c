@@ -49,7 +49,6 @@ int main(int argc, char *argv[]) {
         // -O だけの場合はデフォルトでレベル1にする
         opt_optimize = 1;
       }
-      opt_optimize = 1;
       break;
     case 'o':
       out_file = optarg;
@@ -95,7 +94,18 @@ int main(int argc, char *argv[]) {
     printf("\n----------------------------\n");
   }
 
-  generate_code(top);
+  // コード生成 (list形式)
+  CodeList *cl = generate_code(top);
+
+  // コード最適化(nopの削除)
+  if (opt_optimize >= 1) {
+
+    // addressの最適化
+    optimize_address(cl);
+
+    // nopの削除
+    optimize_nop(cl);
+  }
 
   fp = fopen(out_file, "w");
 

@@ -7,6 +7,7 @@ add_library(codegen
     src/mips_code.c
     src/mips_print.c
     src/mips_reg.c
+    src/optimize.c
 )
 
 # インクルードパスの設定
