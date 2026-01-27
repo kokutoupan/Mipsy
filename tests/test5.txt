@@ -1,5 +1,5 @@
 define sum;
-array foge[2];
+array foge[2*2];
 
 func main(){
 define i;

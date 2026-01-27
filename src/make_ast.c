@@ -1,9 +1,33 @@
 #include "make_ast.h"
 #include "types.h"
+#include <stdio.h>
 #include <stdlib.h>
+
+extern int opt_optimize;
 
 /* basic_ls.y で最後に代入するためのグローバル変数 */
 Node *top = NULL;
+
+static int is_num(Node *n, int val) {
+  return n->id == ND_NUM && n->extra == val;
+}
+
+int calc(int a, ArithOp op, int b) {
+  switch (op) {
+  case OP_ADD:
+    return a + b;
+  case OP_SUB:
+    return a - b;
+  case OP_MUL:
+    return a * b;
+  case OP_DIV:
+    if (b == 0) {
+      fprintf(stderr, "warning: division by zero\n");
+      return 0;
+    }
+    return a / b;
+  }
+}
 
 Node *make_node(NodeType type) {
   Node *n = malloc(sizeof(Node));
@@ -96,8 +120,69 @@ Node *make_loop_node(Node *cond, Node *loop) {
 }
 
 Node *make_arith_node(Node *left, ArithOp op, Node *right) {
+  // 1. 定数同士の畳み込み
+  if (opt_optimize >= 1 && left->id == ND_NUM && right->id == ND_NUM) {
+    int val = calc(left->extra, op, right->extra); // 計算ロジック
+    free(left);                                    // 不要になったノードを掃除
+    free(right);
+    return make_num_node(val); // 計算結果のノードを返す
+  }
+
+  // 2. 代数的簡約 (Identity / Zero Element)
+  // 0や1を使った無駄な計算を削除する
+  if (opt_optimize >= 1) {
+    // 足し算: x + 0 -> x, 0 + x -> x
+    if (op == OP_ADD) {
+      if (is_num(right, 0)) {
+        free(right);
+        return left;
+      }
+      if (is_num(left, 0)) {
+        free(left);
+        return right;
+      }
+    }
+
+    // 引き算: x - 0 -> x
+    if (op == OP_SUB) {
+      if (is_num(right, 0)) {
+        free(right);
+        return left;
+      }
+    }
+
+    // 掛け算: x * 1 -> x, 1 * x -> x
+    //        x * 0 -> 0, 0 * x -> 0
+    if (op == OP_MUL) {
+      if (is_num(right, 1)) {
+        free(right);
+        return left;
+      }
+      if (is_num(left, 1)) {
+        free(left);
+        return right;
+      }
+
+      if (is_num(right, 0) || is_num(left, 0)) {
+        free(left);
+        free(right);
+        return make_num_node(0);
+      }
+    }
+
+    // 割り算: x / 1 -> x
+    if (op == OP_DIV) {
+      if (is_num(right, 1)) {
+        free(right);
+        return left;
+      }
+    }
+  }
+
   Node *n = malloc(sizeof(Node));
+
   n->id = ND_ARITH;
+
   n->node0 = left;
   n->node1 = right;
   n->node2 = NULL;
