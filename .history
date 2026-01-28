@@ -1,1 +1,8 @@
 run
+regdump
+help
+step 100
+regdump
+step 20
+regdump
+bye

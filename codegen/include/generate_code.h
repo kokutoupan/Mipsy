@@ -4,6 +4,8 @@
 
 CodeList *generate_code(Node *node);
 
+void optimize_delay_slot(CodeList *list);
+
 void optimize_nop(CodeList *list);
 
 void optimize_branch(CodeList *list);

@@ -193,16 +193,16 @@ void func_bottom_code(CodeList *out, int size, int n_regs) {
   // $sp <- $fp (スタックポインタを戻す)
   append_code(out, new_code_i(ASM_ORI, R_SP, R_FP, 0));
 
-  // ★ $s レジスタの復帰
+  // $s レジスタの復帰
   for (int i = 0; i < n_regs; i++) {
     append_code(out, new_code_i(ASM_LW, R_S0 + i, R_SP, size + (i * 4)));
   }
 
-  // $fpの復元
-  append_code(out, new_code_i(ASM_LW, R_FP, R_SP, size + save_area_size - 8));
-
   // $raの復元
   append_code(out, new_code_i(ASM_LW, R_RA, R_SP, size + save_area_size - 4));
+
+  // $fpの復元
+  append_code(out, new_code_i(ASM_LW, R_FP, R_SP, size + save_area_size - 8));
 
   // スタック領域の解放
   append_code(out, new_code_i(ASM_ADDIU, R_SP, R_SP, frame_size));

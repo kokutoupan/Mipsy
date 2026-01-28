@@ -47,13 +47,11 @@ IF_T0:
     addu $t0, $s0, $t1
     lw $s5, 0($t0)
     addiu $s3, $s1, -1
-    addu $s4, $s2, $zero
     j loop_cond2
-    nop
+    addu $s4, $s2, $zero
 loop_head3:
-    addiu $s3, $s3, 1
     j loop_cond5
-    nop
+    addiu $s3, $s3, 1
 loop_head6:
     addiu $s3, $s3, 1
 loop_cond5:
@@ -66,9 +64,8 @@ loop_cond5:
     bne $t0, $zero, loop_head6
     nop
 loop_end7:
-    addiu $s4, $s4, -1
     j loop_cond8
-    nop
+    addiu $s4, $s4, -1
 loop_head9:
     beq $s4, $s1, IF_T11
     nop
@@ -129,14 +126,12 @@ loop_end4:
     sw $s6, 0($t1)
     addu $a0, $s0, $zero
     addu $a1, $s1, $zero
-    addiu $a2, $s3, -1
     jal quicksort
-    nop
+    addiu $a2, $s3, -1
     addu $a0, $s0, $zero
     addiu $a1, $s3, 1
-    addu $a2, $s2, $zero
     jal quicksort
-    nop
+    addu $a2, $s2, $zero
 IF_END1:
 # EPILOGUE START
     ori $sp, $fp, 0
@@ -147,11 +142,10 @@ IF_END1:
     lw $s4, 16($sp)
     lw $s5, 20($sp)
     lw $s6, 24($sp)
-    lw $fp, 28($sp)
     lw $ra, 32($sp)
-    addiu $sp, $sp, 36
+    lw $fp, 28($sp)
     jr $ra
-    nop
+    addiu $sp, $sp, 36
 # FUNCTION END
 # FUNCTION START main:
 main:
@@ -182,16 +176,14 @@ main:
     sw $t0, 36($fp)
     addu $a0, $fp, $zero
     addi $a1, $zero, 0
-    addi $a2, $zero, 9
     jal quicksort
-    nop
+    addi $a2, $zero, 9
 # EPILOGUE START
     ori $sp, $fp, 0
-    lw $fp, 40($sp)
     lw $ra, 44($sp)
-    addiu $sp, $sp, 48
+    lw $fp, 40($sp)
     jr $ra
-    nop
+    addiu $sp, $sp, 48
 # FUNCTION END
     
 .data

@@ -102,9 +102,9 @@ int main(int argc, char *argv[]) {
 
     optimize_branch(cl);
 
-
     optimize_per_function(cl);
 
+    optimize_delay_slot(cl);
     // nopの削除
     optimize_nop(cl);
   }

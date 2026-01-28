@@ -125,6 +125,138 @@ static int is_reg_used(AsmInst *insn, MipsReg reg) {
   }
 }
 
+/* 命令が書き込むレジスタを取得 (-1 if none) */
+static MipsReg get_def_reg(AsmInst *insn) {
+  if (insn->op1.type == OP_REG) {
+    switch (insn->code) {
+    case ASM_ADD:
+    case ASM_ADDU:
+    case ASM_SUB:
+    case ASM_SUBU:
+    case ASM_AND:
+    case ASM_OR:
+    case ASM_XOR:
+    case ASM_NOR:
+    case ASM_SLT:
+    case ASM_SLTU:
+    case ASM_SLLV:
+    case ASM_SRLV:
+    case ASM_SRAV:
+    case ASM_ADDI:
+    case ASM_ADDIU:
+    case ASM_ANDI:
+    case ASM_ORI:
+    case ASM_XORI:
+    case ASM_SLTI:
+    case ASM_SLTIU:
+    case ASM_LW:
+    case ASM_LB:
+    case ASM_LUI:
+    case ASM_LA:
+    case ASM_LI:
+    case ASM_MFHI:
+    case ASM_MFLO:
+    case ASM_SLL:
+    case ASM_SRL:
+    case ASM_SRA:
+      return insn->op1.reg;
+    default:
+      return -1;
+    }
+  }
+  return -1;
+}
+
+/* 遅延スロット充填 (Delay Slot Filling)
+ */
+void optimize_delay_slot(CodeList *list) {
+  if (!list || !list->head)
+    return;
+
+  Code *second_last_insn = NULL; // 2つ前の「命令」
+  Code *last_insn = NULL;        // 1つ前の「命令」
+
+  Code *prev = NULL; // リスト上の直前のノード (ラベル含む)
+  Code *cur = list->head;
+
+  while (cur != NULL) {
+    int processed = 0;
+
+    // Branch かつ 直後が NOP かチェック
+    if (cur->kind == CODE_INSN && is_branch(cur->insn.code)) {
+      Code *delay_slot = cur->next;
+
+      if (delay_slot && delay_slot->kind == CODE_INSN &&
+          delay_slot->insn.code == ASM_NOP) {
+
+        // 直前のノード(prev)が命令であり、かつそれが last_insn と一致するか？
+        if (prev && prev->kind == CODE_INSN && prev == last_insn) {
+          AsmInst *b_insn = &cur->insn;  // Branch
+          AsmInst *p_insn = &prev->insn; // Prev
+
+          // 1. Prev は分岐・ジャンプ命令であってはならない
+          if (!is_branch(p_insn->code) && p_insn->code != ASM_SYSCALL) {
+
+            // 2. 依存関係チェック
+            MipsReg p_def = get_def_reg(p_insn);
+            int safe = 1;
+
+            // Check A: Prev が Branch の条件レジスタを書き換えていないか？
+            if (p_def != -1) {
+              if (is_reg_used(b_insn, p_def))
+                safe = 0;
+            }
+
+            // Check B: JAL/JALR の場合
+            if (b_insn->code == ASM_JAL || b_insn->code == ASM_JALR) {
+              // Prev が $ra を読んでいないか？
+              if (is_reg_used(p_insn, R_RA))
+                safe = 0;
+            }
+
+            // Check C: Load Delay (Prevがロードなら移動禁止)
+            if (is_load(p_insn->code))
+              safe = 0;
+
+            // Check D: Prev
+            // が既に誰か(second_last_insn)の遅延スロットなら移動禁止
+            if (second_last_insn && is_branch(second_last_insn->insn.code)) {
+              safe = 0;
+            }
+
+            if (safe) {
+              // 入れ替え実行
+              // 構造: [PrevPrev] -> [Prev] -> [Branch(cur)] -> [NOP] -> [Next]
+
+              // 1. delay_slot (NOP) に Prev の内容をコピー
+              delay_slot->insn = prev->insn;
+
+              // 2. Prev を NOP にする
+              prev->insn.code = ASM_NOP;
+
+              second_last_insn = cur; // Branch
+              last_insn = delay_slot; // Prev(Moved)
+
+              prev = delay_slot;
+              cur = delay_slot->next;
+              processed = 1;
+            }
+          }
+        }
+      }
+    }
+
+    if (!processed) {
+      if (cur->kind == CODE_INSN) {
+        second_last_insn = last_insn;
+        last_insn = cur;
+      }
+      prev = cur;
+      cur = cur->next;
+    }
+  }
+}
+
 /* NOP最適化 */
 void optimize_nop(CodeList *list) {
   if (!list || !list->head)
@@ -784,10 +916,6 @@ int optimize_move_propagation(Code *start, Code *end) {
 }
 
 /* デッドコード削除 (Dead Definition)
- * 値を代入したが、その後一度も使われずに上書き/終了する命令を削除
- */
-/* 2. デッドコード削除 (Dead Definition)
- * 値を定義したが、その後使われずに上書き or 終了する命令を削除
  */
 int optimize_dead_def(Code *start, Code *end) {
   int changed = 0;
