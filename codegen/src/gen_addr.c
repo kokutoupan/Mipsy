@@ -86,8 +86,7 @@ MipsReg gen_addr(CodeList *out, Node *node, MipsReg reg) {
           append_code(out, new_code_i(ASM_LW, reg, R_FP, ent->offset));
           append_code(out, new_code0(ASM_NOP));
         } else {
-          append_code(out,
-                      new_code_r(ASM_ADDU, reg, R_S0 + ent->reg_idx, R_ZERO));
+          append_code(out, new_code_r(ASM_ADDU, reg, ent->reg_idx, R_ZERO));
         }
       }
     }

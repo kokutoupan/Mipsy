@@ -1,6 +1,7 @@
 #include "generate_code.h" // 公開ヘッダ
 #include "internal.h"
 #include "mips_code.h"
+#include "mips_reg.h"
 #include "types.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -105,9 +106,9 @@ void def_variable(Node *node, int is_reg) {
 
     // 「reg指定あり」かつ「まだ$sレジスタ(8個)に空きがある」場合
     if (is_reg && used_s_regs < 8) {
-      ent->reg_idx = used_s_regs++; // 0, 1, 2... と割り当て
-      ent->offset = 0;              // スタックオフセットは使わない
-      vartable.next_offset -= 4;    // 打ち消し
+      ent->reg_idx = R_S0 + used_s_regs++; // 0, 1, 2... と割り当て
+      ent->offset = 0;                     // スタックオフセットは使わない
+      vartable.next_offset -= 4;           // 打ち消し
 
     } else {
       // 従来通りスタックに割り当て
@@ -264,7 +265,7 @@ void gen_function(Node *func_node) {
     VarEntry *ent = var_add(&vartable, ident_node->str);
 
     if (used_s_regs < 8) {
-      ent->reg_idx = used_s_regs;
+      ent->reg_idx = used_s_regs + R_S0;
       ent->offset = 0; // スタックは使わない
       vartable.next_offset -= 4;
 

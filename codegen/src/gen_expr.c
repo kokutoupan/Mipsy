@@ -49,7 +49,7 @@ Operand get_operand(CodeList *out, Node *node, MipsReg reg) {
     VarEntry *ent = var_find(&vartable, node->str);
     if (ent && ent->reg_idx != -1) {
       // MOVE reg, $sX  (ADDU reg, $sX, $zero)
-      append_code(out, new_code_r(ASM_ADDU, reg, R_S0 + ent->reg_idx, R_ZERO));
+      append_code(out, new_code_r(ASM_ADDU, reg, ent->reg_idx, R_ZERO));
       return op;
     }
   }

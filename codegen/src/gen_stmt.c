@@ -136,7 +136,7 @@ void gen_assign(CodeList *out, Node *node) {
       }
 
       // MOVE $sX, $t0
-      append_code(out, new_code_r(ASM_ADDU, R_S0 + ent->reg_idx, R_T0, R_ZERO));
+      append_code(out, new_code_r(ASM_ADDU, ent->reg_idx, R_T0, R_ZERO));
       return;
     }
   }
