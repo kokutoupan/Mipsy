@@ -19,6 +19,7 @@ stop:                                           # if syscall return
         nop                             # (delay slot)                     
                                                                            
         .text   0x00001000              # 以降のコードを0x00001000から配置 
+# FUNCTION START quicksort:
 quicksort:
     addiu $sp, $sp, -36
     sw $ra, 32($sp)
@@ -34,6 +35,7 @@ quicksort:
     addu $s0, $a0, $zero
     addu $s1, $a1, $zero
     addu $s2, $a2, $zero
+# PROLOGUE END
     addu $t0, $s2, $zero
     subu $t0, $s1, $t0
     sra $t0, $t0, 31
@@ -154,6 +156,7 @@ loop_end4:
     jal quicksort
     nop
 IF_END1:
+# EPILOGUE START
     ori $sp, $fp, 0
     lw $s0, 0($sp)
     lw $s1, 4($sp)
@@ -167,11 +170,14 @@ IF_END1:
     addiu $sp, $sp, 36
     jr $ra
     nop
+# FUNCTION END
+# FUNCTION START main:
 main:
     addiu $sp, $sp, -48
     sw $ra, 44($sp)
     sw $fp, 40($sp)
     ori $fp, $sp, 0
+# PROLOGUE END
     addi $t0, $zero, 10
     sw $t0, 0($fp)
     addi $t0, $zero, 4
@@ -197,11 +203,13 @@ main:
     addi $a2, $zero, 9
     jal quicksort
     nop
+# EPILOGUE START
     ori $sp, $fp, 0
     lw $fp, 40($sp)
     lw $ra, 44($sp)
     addiu $sp, $sp, 48
     jr $ra
     nop
+# FUNCTION END
     
 .data

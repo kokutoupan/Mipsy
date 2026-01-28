@@ -91,7 +91,14 @@ typedef struct {
   };
 } Operand;
 
-typedef enum { CODE_INSN, CODE_LABEL } CodeKind;
+typedef enum {
+  CODE_INSN,
+  CODE_LABEL,
+  CODE_FUNC_ENTER,     // 関数の開始
+  CODE_PROLOGUE_END,   // プロローグ終了（＝本体開始）
+  CODE_EPILOGUE_START, // エピローグ開始（＝本体終了）
+  CODE_FUNC_LEAVE      // 関数の終了
+} CodeKind;
 
 typedef struct {
   AsmCode code;
@@ -154,6 +161,14 @@ Code *new_label(const char *name);
 
 Code *new_code_la(MipsReg rt, const char *label);
 Code *new_code_dir_i(AsmCode code, int imm);
+
+Code *new_code_func_enter(char *name);
+
+Code *new_code_func_leave();
+
+Code *new_code_prologue_end();
+
+Code *new_code_epilogue_start();
 
 // アセンブリのコードを文字列へ変換する関数
 const char *asmcode_to_string(AsmCode code);

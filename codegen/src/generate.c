@@ -225,6 +225,9 @@ void gen_function(Node *func_node) {
 
   used_s_regs = 0;
 
+  // 目印
+  append_code(&codeList, new_code_func_enter(func_node->str));
+
   // 1. 関数ラベルの生成
   append_code(&codeList, new_label(func_node->str));
 
@@ -309,11 +312,15 @@ void gen_function(Node *func_node) {
     }
   }
 
+  // プロローグの終了
+  append_code(&codeList, new_code_prologue_end());
+
   // 7. 関数本体の生成
   // node1: Body (SentenceSet)
   gen_stmt_list(&codeList, func_node->node1);
 
   // 8. エピローグ生成
+  append_code(&codeList, new_code_epilogue_start());
   func_bottom_code(&codeList, locals_size, used_s_regs);
 
   // デバッグ(変数の表示)
@@ -321,6 +328,7 @@ void gen_function(Node *func_node) {
     print_var_table(stderr, &vartable);
 
   leave_scope(&vartable);
+  append_code(&codeList, new_code_func_leave());
 }
 
 CodeList *generate_code(Node *node) {

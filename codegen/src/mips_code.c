@@ -174,7 +174,8 @@ void print_var_table(FILE *fp, const VarTable *vt) {
   // デバッグ用に現在の変数登録数と次のオフセットも表示しておくと便利です
   fprintf(fp, "\nVariables (n_vars=%d, next_offset=%d):\n", vt->n_vars,
           vt->next_offset);
-  fprintf(fp, "%-4s  %-20s  %-6s  %s %s\n", "Idx", "Name", "Scope", "Offset","reg");
+  fprintf(fp, "%-4s  %-20s  %-6s  %s %s\n", "Idx", "Name", "Scope", "Offset",
+          "reg");
   fprintf(fp, "-----------------------------------------------\n");
 
   // スタック管理方式なので、0 から n_vars
@@ -183,7 +184,7 @@ void print_var_table(FILE *fp, const VarTable *vt) {
     const VarEntry *v = &vt->vars[i];
 
     fprintf(fp, "%-4d  %-20s  %-6d  %d %d\n", i, v->name ? v->name : "(null)",
-            v->scope_id, v->offset,v->reg_idx);
+            v->scope_id, v->offset, v->reg_idx);
   }
 
   fprintf(fp, "============================\n\n");
@@ -326,6 +327,35 @@ Code *new_code_dir_i(AsmCode code, int imm) {
 
   c->insn.op1 = (Operand){OP_IMM, .imm = imm};
 
+  c->next = NULL;
+  return c;
+}
+
+Code *new_code_func_enter(char *name) {
+  Code *c = malloc(sizeof(Code));
+  c->kind = CODE_FUNC_ENTER;
+  c->label.name = name; // 関数名を保持
+  c->next = NULL;
+  return c;
+}
+
+Code *new_code_func_leave() {
+  Code *c = malloc(sizeof(Code));
+  c->kind = CODE_FUNC_LEAVE;
+  c->next = NULL;
+  return c;
+}
+
+Code *new_code_prologue_end() {
+  Code *c = malloc(sizeof(Code));
+  c->kind = CODE_PROLOGUE_END;
+  c->next = NULL;
+  return c;
+}
+
+Code *new_code_epilogue_start() {
+  Code *c = malloc(sizeof(Code));
+  c->kind = CODE_EPILOGUE_START;
   c->next = NULL;
   return c;
 }

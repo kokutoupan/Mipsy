@@ -98,13 +98,7 @@ static void print_operand(FILE *fp, Operand *o) {
   }
 }
 
-// ---- 命令 1行を出力 ----
-void print_code(FILE *fp, Code *code) {
-  if (code->kind == CODE_LABEL) {
-    fprintf(fp, "%s:\n", code->label.name);
-    return;
-  }
-
+void print_inst(FILE *fp, Code *code) {
   // 命令は一応インデントしといてやろう
   fprintf(fp, "    ");
 
@@ -279,6 +273,32 @@ void print_code(FILE *fp, Code *code) {
   default:
     fprintf(fp, "# [unknown asm]\n");
     return;
+  }
+}
+// ---- 命令 1行を出力 ----
+void print_code(FILE *fp, Code *code) {
+  switch (code->kind) {
+  case CODE_LABEL:
+    fprintf(fp, "%s:\n", code->label.name);
+    return;
+  case CODE_INSN:
+    print_inst(fp, code);
+    return;
+  case CODE_FUNC_ENTER:
+    fprintf(fp, "# FUNCTION START %s:\n", code->label.name);
+    return;
+  case CODE_PROLOGUE_END:
+    fprintf(fp, "# PROLOGUE END\n");
+    return;
+  case CODE_EPILOGUE_START:
+    fprintf(fp, "# EPILOGUE START\n");
+    return;
+  case CODE_FUNC_LEAVE:
+    fprintf(fp, "# FUNCTION END\n");
+    return;
+  }
+
+  if (code->kind == CODE_LABEL) {
   }
 }
 
