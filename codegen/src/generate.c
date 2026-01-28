@@ -107,7 +107,7 @@ void def_variable(Node *node, int is_reg) {
     if (is_reg && used_s_regs < 8) {
       ent->reg_idx = used_s_regs++; // 0, 1, 2... と割り当て
       ent->offset = 0;              // スタックオフセットは使わない
-      vartable.next_offset -= 4; // 打ち消し
+      vartable.next_offset -= 4;    // 打ち消し
 
     } else {
       // 従来通りスタックに割り当て
@@ -235,8 +235,9 @@ void gen_function(Node *func_node) {
 
   // 3. 引数の登録
   struct {
-    int offset;
-    MipsReg reg;
+    int is_reg;
+    int target;
+    MipsReg src;
   } param_saves[4];
   int param_count = 0;
   MipsReg arg_regs[] = {R_A0, R_A1, R_A2, R_A3};
@@ -262,9 +263,26 @@ void gen_function(Node *func_node) {
     // VarTableに登録 (すべて4バイトintとして扱う)
     VarEntry *ent = var_add(&vartable, ident_node->str);
 
-    // 「$aX を ent->offset に保存する」という情報を記録
-    param_saves[param_count].offset = ent->offset;
-    param_saves[param_count].reg = arg_regs[param_count];
+    if (used_s_regs < 8) {
+      ent->reg_idx = used_s_regs;
+      ent->offset = 0; // スタックは使わない
+      vartable.next_offset -= 4;
+
+      // 「$s(used) に $a(src) をコピーする」と記録
+      param_saves[param_count].is_reg = 1;
+      param_saves[param_count].target = used_s_regs + R_S0; // $s0~
+      param_saves[param_count].src = arg_regs[param_count];
+
+      used_s_regs++;
+
+    } else {
+
+      ent->reg_idx = -1;
+      // 「$aX を ent->offset に保存する」という情報を記録
+      param_saves[param_count].target = ent->offset;
+      param_saves[param_count].src = arg_regs[param_count];
+      param_saves[param_count].is_reg = 0;
+    }
 
     param_count++;
   }
@@ -276,13 +294,18 @@ void gen_function(Node *func_node) {
 
   // 5. プロローグ生成
   int locals_size = (vartable.next_offset);
-  func_head_code(&codeList, locals_size,used_s_regs);
+  func_head_code(&codeList, locals_size, used_s_regs);
 
   // 6. 引数の値を変数に保存
   // プロローグで $fp が設定された直後に実行する
   for (int i = 0; i < param_count; i++) {
-    append_code(&codeList, new_code_i(ASM_SW, param_saves[i].reg, R_FP,
-                                      param_saves[i].offset));
+    if (param_saves[i].is_reg == 0) {
+      append_code(&codeList, new_code_i(ASM_SW, param_saves[i].src, R_FP,
+                                        param_saves[i].target));
+    } else {
+      append_code(&codeList, new_code_r(ASM_ADDU, param_saves[i].target,
+                                        param_saves[i].src, R_ZERO));
+    }
   }
 
   // 7. 関数本体の生成
@@ -290,7 +313,7 @@ void gen_function(Node *func_node) {
   gen_stmt_list(&codeList, func_node->node1);
 
   // 8. エピローグ生成
-  func_bottom_code(&codeList, locals_size,used_s_regs);
+  func_bottom_code(&codeList, locals_size, used_s_regs);
 
   // デバッグ(変数の表示)
   if (opt_debug)

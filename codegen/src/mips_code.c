@@ -174,7 +174,7 @@ void print_var_table(FILE *fp, const VarTable *vt) {
   // デバッグ用に現在の変数登録数と次のオフセットも表示しておくと便利です
   fprintf(fp, "\nVariables (n_vars=%d, next_offset=%d):\n", vt->n_vars,
           vt->next_offset);
-  fprintf(fp, "%-4s  %-20s  %-6s  %s\n", "Idx", "Name", "Scope", "Offset");
+  fprintf(fp, "%-4s  %-20s  %-6s  %s %s\n", "Idx", "Name", "Scope", "Offset","reg");
   fprintf(fp, "-----------------------------------------------\n");
 
   // スタック管理方式なので、0 から n_vars
@@ -182,8 +182,8 @@ void print_var_table(FILE *fp, const VarTable *vt) {
   for (int i = 0; i < vt->n_vars; i++) {
     const VarEntry *v = &vt->vars[i];
 
-    fprintf(fp, "%-4d  %-20s  %-6d  %d\n", i, v->name ? v->name : "(null)",
-            v->scope_id, v->offset);
+    fprintf(fp, "%-4d  %-20s  %-6d  %d %d\n", i, v->name ? v->name : "(null)",
+            v->scope_id, v->offset,v->reg_idx);
   }
 
   fprintf(fp, "============================\n\n");

@@ -81,9 +81,14 @@ MipsReg gen_addr(CodeList *out, Node *node, MipsReg reg) {
         append_code(out, new_code0(ASM_NOP));
       } else {
         // ローカルポインタ:
-        // スタック上の変数の中身（指し先のアドレス）をロード
-        append_code(out, new_code_i(ASM_LW, reg, R_FP, ent->offset));
-        append_code(out, new_code0(ASM_NOP));
+        // スタック上の変数の中身をロード or レジスタ参照
+        if (ent->reg_idx == -1) {
+          append_code(out, new_code_i(ASM_LW, reg, R_FP, ent->offset));
+          append_code(out, new_code0(ASM_NOP));
+        } else {
+          append_code(out,
+                      new_code_r(ASM_ADDU, reg, R_S0 + ent->reg_idx, R_ZERO));
+        }
       }
     }
 
@@ -103,7 +108,7 @@ MipsReg gen_addr(CodeList *out, Node *node, MipsReg reg) {
         stride = 4;
       }
 
-      // ★定数(ND_NUM)なら、コード生成せずにオフセットに足し込むだけ！
+      // 定数(ND_NUM)なら、コード生成せずにオフセットに足し込むだけ！
       if (idx_node->id == ND_NUM) {
         const_offset += idx_node->extra * stride;
         continue; // 次の次元へ
@@ -135,7 +140,7 @@ MipsReg gen_addr(CodeList *out, Node *node, MipsReg reg) {
       append_code(out, new_code_r(ASM_ADDU, reg, reg, reg + 1));
     }
 
-    // ★最後に累積した定数オフセットを加算
+    // 最後に累積した定数オフセットを加算
     if (const_offset != 0) {
       // 16bit即値に収まるなら ADDIU
       if (const_offset >= -32768 && const_offset <= 32767) {

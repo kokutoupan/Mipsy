@@ -1,6 +1,7 @@
 func quicksort(a, l, r){
   reg i,j;
-  define v, t;
+  //define v, t;
+  reg v,t;  // 全部レジスタを使え
   
   // l, r は通常のインデックス(0, 9など)として受け取る
   if (r > l){
