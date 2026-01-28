@@ -199,21 +199,64 @@ void optimize_nop(CodeList *list) {
   }
 }
 
-/* レジスタがこの後で読まれるか */
-static int is_reg_read_later(Code *start_node, MipsReg reg) {
+// 加算(ADDIU/ADDI/ADDU+zero)なら値を返す。それ以外ならフラグを下ろす
+static int get_add_imm(AsmInst *insn, int *is_valid) {
+  if (insn->code == ASM_ADDIU || insn->code == ASM_ADDI) {
+    *is_valid = 1;
+    return insn->op3.imm;
+  }
+  if (insn->code == ASM_ADDU && insn->op3.type == OP_REG &&
+      insn->op3.reg == R_ZERO) {
+    *is_valid = 1;
+    return 0; // +0 とみなす
+  }
+  *is_valid = 0;
+  return 0;
+};
 
+static int is_control_flow(Code *c) {
+  if (c->kind == CODE_LABEL || c->kind == CODE_FUNC_ENTER ||
+      c->kind == CODE_FUNC_LEAVE || c->kind == CODE_PROLOGUE_END ||
+      c->kind == CODE_EPILOGUE_START)
+    return 1;
+
+  if (c->kind == CODE_INSN) {
+    AsmCode code = c->insn.code;
+    // 分岐、ジャンプ、関数呼び出し、リターン
+    if (code == ASM_BEQ || code == ASM_BNE || code == ASM_J ||
+        code == ASM_JAL || code == ASM_JALR || code == ASM_JR) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+/* 指定範囲内でレジスタが使用（リード）されているか判定
+ */
+static int is_reg_read_in_range(Code *start, Code *end, MipsReg reg) {
+  // $t0-$t7 (Caller Saved) かどうか
   int is_stric = !(reg >= R_T0 && reg <= R_T7);
 
-  // $t0-$t7は，jumpの類にあるときには、破棄されるだろう
-  for (Code *cur = start_node; cur != NULL; cur = cur->next) {
-    if (cur->kind != CODE_INSN)
+  for (Code *cur = start; cur != end && cur != NULL; cur = cur->next) {
+
+    // エピローグの開始に到達したら、そこでスコープ終了とみなす（読まれない）
+    if (cur->kind == CODE_EPILOGUE_START) {
+      return 0;
+    }
+
+    // ラベルは無視して次の命令へ（リニアスキャンを継続）
+    if (cur->kind == CODE_LABEL || cur->kind == CODE_FUNC_ENTER ||
+        cur->kind == CODE_FUNC_LEAVE || cur->kind == CODE_PROLOGUE_END) {
       continue;
+    }
+
+    // 命令以外はスキップ
+    if (cur->kind != CODE_INSN) {
+      continue;
+    }
 
     // この命令で読まれているか？
     if (is_reg_used(&cur->insn, reg)) {
-
-      // fprintf(stderr, "use : [%d][%d],[%d]\n", cur->insn.code,
-      //         cur->insn.op1.reg, cur->insn.op2.reg);
       return 1;
     }
 
@@ -242,37 +285,47 @@ static int is_reg_read_later(Code *start_node, MipsReg reg) {
     case ASM_SLTIU:
     case ASM_LW:
     case ASM_LB:
+      // op1 が上書き対象
       if (insn->op1.type == OP_REG && insn->op1.reg == reg)
-        return 0; // 上書きされた
+        return 0;
       break;
-    // div/multなどは HI/LO への書き込みなので注意（ここでは無視）
+
+    // div/mult, syscall などはここでは上書きとみなさない（安全側）
     default:
       break;
     }
 
-    // // 関数呼び出し、終了は良しとする
-    // if (insn->code != ASM_JAL && insn->code != ASM_JALR &&
-    //     insn->code != ASM_JR) {
-    //   return 0;
-    // }
+    // 分岐・ジャンプの判定
+    if (is_branch(insn->code)) {
+      // ジャンプ命令群 (J, JAL, JALR, JR)
+      int is_jump = (insn->code == ASM_J || insn->code == ASM_JAL ||
+                     insn->code == ASM_JALR || insn->code == ASM_JR);
 
-    // 分岐はめんどくさいからt_ならセーフほかだめ
-    if (is_branch(insn->code))
-      return is_stric;
+      // 一時レジスタ($t系)かつジャンプなら、その先では破棄されるとみなす -> 0
+      // それ以外（条件分岐や、$s系レジスタ）は、合流先で読まれる可能性あり -> 1
+      // (Unknown/Unsafe)
+      if (!is_stric && is_jump) {
+        return 0;
+      } else {
+        return 1;
+      }
+    }
   }
+
   return 0; // 最後まで読まれなかった
 }
 
 /* アドレス計算の統合: ADDIU rd, rs, imm -> LW/SW rt, 0(rd)  ==> LW/SW rt,
  * imm(rs) */
-void optimize_address(CodeList *list) {
-  if (!list || !list->head)
-    return;
+int optimize_address_range(Code *start, Code *end) {
+  if (!start || !end)
+    return 0;
 
   Code *prev = NULL;
-  Code *cur = list->head;
+  Code *cur = start;
 
-  while (cur != NULL) {
+  int is_change = 0;
+  while (cur != NULL && cur != end) {
     Code *next = cur->next;
 
     // ラベル等はスキップして次の命令を探す
@@ -312,7 +365,7 @@ void optimize_address(CodeList *list) {
                 is_load(i2->code) && (i2->op2.reg == i2->op1.reg) &&
                 next->next != NULL && next->next->kind == CODE_INSN &&
                 next->next->insn.code == ASM_NOP;
-            if (is_lw_addr_use || !is_reg_read_later(next->next, rd)) {
+            if (is_lw_addr_use || !is_reg_read_in_range(next->next, end, rd)) {
 
               // i2 (LW/SW) のベースを i1のrs ($fp) に書き換え
               i2->op2 = i1->op2;
@@ -323,12 +376,10 @@ void optimize_address(CodeList *list) {
               // i1 (ADDIU) を削除
               Code *to_delete = cur;
 
-              if (prev)
-                prev->next = next; // prev -> i2
-              else
-                list->head = next;
+              prev->next = cur->next;
 
               free(to_delete);
+              is_change = 1;
               continue;
             }
           }
@@ -339,6 +390,8 @@ void optimize_address(CodeList *list) {
     prev = cur;
     cur = cur->next;
   }
+
+  return is_change;
 }
 
 /* Load -> Move の統合
@@ -348,11 +401,12 @@ void optimize_address(CodeList *list) {
  *
  * ==> LW rd, off(base)
  */
-void optimize_load_move(CodeList *list) {
-  if (!list || !list->head)
-    return;
+int optimize_load_move_range(Code *start, Code *end) {
+  if (!start || !end)
+    return 0;
 
-  Code *cur = list->head;
+  Code *cur = start;
+  int is_change = 0;
 
   while (cur != NULL) {
     // LW
@@ -391,18 +445,18 @@ void optimize_load_move(CodeList *list) {
           int base_reg_conflict =
               (i_lw->op2.type == OP_REG && i_lw->op2.reg == dst_reg);
 
-          if (!base_reg_conflict && !is_reg_read_later(move->next, src_reg)) {
+          if (!base_reg_conflict &&
+              !is_reg_read_in_range(move->next, end, src_reg)) {
 
             // LW の出力先を Moveのdst に書き換え
             i_lw->op1.reg = dst_reg;
 
             // Move命令を削除
             nop->next = move->next;
-            if (move == list->tail)
-              list->tail = nop;
             free(move);
 
             cur = nop;
+            is_change = 1;
             continue;
           }
         }
@@ -410,36 +464,24 @@ void optimize_load_move(CodeList *list) {
     }
     cur = cur->next;
   }
+  return is_change;
 }
-
-// 加算(ADDIU/ADDI/ADDU+zero)なら値を返す。それ以外ならフラグを下ろす
-static int get_add_imm(AsmInst *insn, int *is_valid) {
-  if (insn->code == ASM_ADDIU || insn->code == ASM_ADDI) {
-    *is_valid = 1;
-    return insn->op3.imm;
-  }
-  if (insn->code == ASM_ADDU && insn->op3.type == OP_REG &&
-      insn->op3.reg == R_ZERO) {
-    *is_valid = 1;
-    return 0; // +0 とみなす
-  }
-  *is_valid = 0;
-  return 0;
-};
 
 /* 連続する即値加算の統合 (Chain Optimization)
  * 1. ADDIU rd, rs, imm1
  * 2. ADDIU rd, rd, imm2
  * ==> ADDIU rd, rs, (imm1 + imm2)
  */
-void optimize_addiu_chain(CodeList *list) {
-  if (!list || !list->head)
-    return;
+int optimize_addiu_chain_range(Code *head, Code *end) {
+  if (!head || !end)
+    return 0;
 
   Code *prev = NULL;
-  Code *cur = list->head;
+  Code *cur = head;
 
-  while (cur != NULL) {
+  int is_change = 0;
+
+  while (cur != NULL && cur != end) {
     Code *next = cur->next;
 
     // cur と next が共に ADDIU (または ADDI) かチェック
@@ -459,7 +501,8 @@ void optimize_addiu_chain(CodeList *list) {
         MipsReg rd1 = i1->op1.reg;
         // i1 の出力先(rd1) を i2 が 入出力(rd2, rs2) として使っているか
         if (i2->op2.reg == rd1 &&
-            (i2->op1.reg == rd1 || !is_reg_read_later(next->next, rd1))) {
+            (i2->op1.reg == rd1 ||
+             !is_reg_read_in_range(next->next, end, rd1))) {
 
           int new_imm = imm1 + imm2;
 
@@ -476,11 +519,10 @@ void optimize_addiu_chain(CodeList *list) {
             i1->op1.reg = i2->op1.reg;
 
             // next (i2) をリストから削除
-            cur->next = next->next; // curの次を nextの次へ飛ばす
-            if (next == list->tail)
-              list->tail = cur;
+            cur->next = next->next;
             free(next);
 
+            is_change = 1;
             continue;
           }
         }
@@ -491,6 +533,8 @@ void optimize_addiu_chain(CodeList *list) {
     prev = cur;
     cur = cur->next;
   }
+
+  return is_change;
 }
 
 /* 定数分岐の畳み込み
@@ -584,85 +628,6 @@ void optimize_branch(CodeList *list) {
   }
 }
 
-/* Move命令の伝播と統合
- * 1. ADDU rd, rs, $zero (Move)
- * 2. OP   ..., rd, ...  (Operation using rd)
- */
-void optimize_move_chain(CodeList *list) {
-  if (!list || !list->head)
-    return;
-
-  Code *prev = NULL;
-  Code *cur = list->head;
-
-  while (cur != NULL) {
-    Code *next = cur->next;
-
-    if (cur->kind == CODE_INSN && next != NULL && next->kind == CODE_INSN) {
-      AsmInst *i1 = &cur->insn;  // Move命令
-      AsmInst *i2 = &next->insn; // 次の演算
-
-      // 1. i1 が Move 命令か判定
-      int is_move = 0;
-      MipsReg rd_move, rs_move;
-
-      // ADDU rd, rs, $zero
-      if (i1->code == ASM_ADDU && i1->op3.type == OP_REG &&
-          i1->op3.reg == R_ZERO) {
-        is_move = 1;
-        rd_move = i1->op1.reg;
-        rs_move = i1->op2.reg;
-      }
-      // OR rd, rs, $zero
-      else if (i1->code == ASM_OR && i1->op3.type == OP_REG &&
-               i1->op3.reg == R_ZERO) {
-        is_move = 1;
-        rd_move = i1->op1.reg;
-        rs_move = i1->op2.reg;
-      }
-      // ADDIU rd, rs, 0
-      else if ((i1->code == ASM_ADDIU || i1->code == ASM_ADDI) &&
-               i1->op3.type == OP_IMM && i1->op3.imm == 0) {
-        is_move = 1;
-        rd_move = i1->op1.reg;
-        rs_move = i1->op2.reg;
-      }
-
-      if (is_move) {
-        // 2. i2 が rd_move を入力として使っているかチェック
-        int use_in_op2 = (i2->op2.type == OP_REG && i2->op2.reg == rd_move);
-        int use_in_op3 = (i2->op3.type == OP_REG && i2->op3.reg == rd_move);
-
-        if (use_in_op2 || use_in_op3) {
-          // 安全性チェック:
-          // i2 で rd_move が上書きされる (出力先が同じ)、または後続で読まれない
-          int overwrite_self =
-              (i2->op1.type == OP_REG && i2->op1.reg == rd_move);
-
-          if (overwrite_self || !is_reg_read_later(next->next, rd_move)) {
-
-            *i1 = *i2;
-
-            if (use_in_op2)
-              i1->op2.reg = rs_move;
-            if (use_in_op3)
-              i1->op3.reg = rs_move;
-
-            // next (i2) をリストから削除
-            cur->next = next->next;
-            if (next == list->tail)
-              list->tail = cur;
-            free(next);
-            continue;
-          }
-        }
-      }
-    }
-    prev = cur;
-    cur = cur->next;
-  }
-}
-
 // 指定範囲内でレジスタへの書き込み(clobber)があるかチェック
 static int is_reg_clobbered(Code *start, Code *end, MipsReg reg) {
   Code *cur = start;
@@ -714,108 +679,196 @@ static int is_reg_clobbered(Code *start, Code *end, MipsReg reg) {
   return 0; // 上書きなし
 }
 
-/* ヘルパー: 指定範囲内のレジスタ使用を置換する */
-static void replace_reg(Code *start, Code *end, MipsReg old_reg,
-                        MipsReg new_reg) {
+/* Move伝播 (Window探索版)
+ * start から end までの範囲で、Move命令の値を前方に伝播させる
+ */
+int optimize_move_propagation(Code *start, Code *end) {
+  int changed = 0;
   Code *cur = start;
+  int WINDOW_SIZE = 16; // 探索ウィンドウサイズ
+
   while (cur != end && cur != NULL) {
     if (cur->kind == CODE_INSN) {
       AsmInst *insn = &cur->insn;
-      // op1, op2, op3 のレジスタ番号をチェックして置換
-      if (insn->op1.type == OP_REG && insn->op1.reg == old_reg)
-        insn->op1.reg = new_reg;
-      if (insn->op2.type == OP_REG && insn->op2.reg == old_reg)
-        insn->op2.reg = new_reg;
-      if (insn->op3.type == OP_REG && insn->op3.reg == old_reg)
-        insn->op3.reg = new_reg;
+
+      // Move命令か判定 (ADDU, OR, ADDIU のゼロ加算/論理和)
+      int is_move = 0;
+      MipsReg dst, src;
+
+      if (insn->code == ASM_ADDU && insn->op3.type == OP_REG &&
+          insn->op3.reg == R_ZERO) {
+        is_move = 1;
+        dst = insn->op1.reg;
+        src = insn->op2.reg;
+      } else if (insn->code == ASM_OR && insn->op3.type == OP_REG &&
+                 insn->op3.reg == R_ZERO) {
+        is_move = 1;
+        dst = insn->op1.reg;
+        src = insn->op2.reg;
+      } else if ((insn->code == ASM_ADDIU || insn->code == ASM_ADDI) &&
+                 insn->op3.type == OP_IMM && insn->op3.imm == 0) {
+        is_move = 1;
+        dst = insn->op1.reg;
+        src = insn->op2.reg;
+      }
+
+      if (is_move && dst != src) {
+        // 前方スキャンして dst を src に置換
+        Code *scan = cur->next;
+        int dist = 0;
+        int src_clobbered = 0;
+        int dst_clobbered = 0;
+
+        while (scan != end && scan != NULL && dist < WINDOW_SIZE) {
+          // 制御フローに当たったら安全のため打ち切り
+          if (is_control_flow(scan))
+            break;
+
+          if (scan->kind == CODE_INSN) {
+            AsmInst *s_insn = &scan->insn;
+
+            // 1. 置換チャンス: dstを使っているか？
+            // (src/dstがまだ上書きされていない場合のみ)
+            if (!src_clobbered && !dst_clobbered) {
+              int replaced = 0;
+
+              // op1 check (SW/SB/BEQ/BNE では入力)
+              if (s_insn->op1.type == OP_REG && s_insn->op1.reg == dst) {
+                if (s_insn->code == ASM_SW || s_insn->code == ASM_SB ||
+                    s_insn->code == ASM_BEQ || s_insn->code == ASM_BNE) {
+                  s_insn->op1.reg = src;
+                  replaced = 1;
+                }
+              }
+              // op2 check
+              if (s_insn->op2.type == OP_REG && s_insn->op2.reg == dst) {
+                s_insn->op2.reg = src;
+                replaced = 1;
+              }
+              // op3 check
+              if (s_insn->op3.type == OP_REG && s_insn->op3.reg == dst) {
+                s_insn->op3.reg = src;
+                replaced = 1;
+              }
+
+              if (replaced)
+                changed = 1;
+            }
+
+            // 2. 生存チェック: src や dst が書き換えられるか？
+            // op1 (出力) をチェック
+            if (s_insn->op1.type == OP_REG) {
+              int is_write = 1;
+              if (s_insn->code == ASM_SW || s_insn->code == ASM_SB ||
+                  s_insn->code == ASM_BEQ || s_insn->code == ASM_BNE ||
+                  s_insn->code == ASM_JR || s_insn->code == ASM_NOP) {
+                is_write = 0;
+              }
+
+              if (is_write) {
+                if (s_insn->op1.reg == src)
+                  src_clobbered = 1;
+                if (s_insn->op1.reg == dst)
+                  dst_clobbered = 1;
+              }
+            }
+          }
+          scan = scan->next;
+          dist++;
+        }
+      }
     }
     cur = cur->next;
   }
+  return changed;
 }
 
-/* 葉関数最適化: 引数レジスタ($aX)を直接使用する
+/* デッドコード削除 (Dead Definition)
+ * 値を代入したが、その後一度も使われずに上書き/終了する命令を削除
  */
-void optimize_leaf_func(CodeList *list) {
+/* 2. デッドコード削除 (Dead Definition)
+ * 値を定義したが、その後使われずに上書き or 終了する命令を削除
+ */
+int optimize_dead_def(Code *start, Code *end) {
+  int changed = 0;
+  Code *cur = start;
+
+  while (cur != end && cur != NULL) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+
+      // 書き込みを行う命令か？
+      // (ADD, LW, MOVEなど。SWやBRANCH、副作用のある命令は除外)
+      int is_def = 0;
+      MipsReg target_reg;
+
+      if (insn->op1.type == OP_REG) {
+        if (insn->code != ASM_SW && insn->code != ASM_SB &&
+            insn->code != ASM_BEQ && insn->code != ASM_BNE &&
+            insn->code != ASM_JR && insn->code != ASM_JAL &&
+            insn->code != ASM_JALR && insn->code != ASM_SYSCALL &&
+            insn->code != ASM_NOP) {
+          is_def = 1;
+          target_reg = insn->op1.reg;
+        }
+      }
+
+      if (is_def) {
+        // 後続で使われているかチェック
+        if (!is_reg_read_in_range(cur->next, end, target_reg)) {
+          // 削除 (NOP化)
+          insn->code = ASM_NOP;
+          changed = 1;
+        }
+      }
+    }
+    cur = cur->next;
+  }
+  return changed;
+}
+
+/* 関数単位ドライバ
+ * リストから関数ブロックを切り出し、収束するまで最適化を回す
+ */
+void optimize_per_function(CodeList *list) {
   if (!list || !list->head)
     return;
 
   Code *cur = list->head;
-
   while (cur != NULL) {
-    // 関数開始マーカーを見つける
     if (cur->kind == CODE_FUNC_ENTER) {
+      Code *func_start = cur;
+      Code *func_end = cur->next;
 
-      // 1. 本体の範囲 (PROLOGUE_END ～ EPILOGUE_START) を特定
-      Code *body_start = cur;
-      while (body_start && body_start->kind != CODE_PROLOGUE_END) {
-        body_start = body_start->next;
+      // 関数の終わりを探す
+      while (func_end != NULL && func_end->kind != CODE_FUNC_LEAVE) {
+        func_end = func_end->next;
       }
 
-      Code *body_end = body_start;
-      while (body_end && body_end->kind != CODE_EPILOGUE_START &&
-             body_end != NULL) {
-        body_end = body_end->next;
+      if (func_end) {
+        // --- 最適化ループ ---
+        int changed;
+        int loop_count = 0;
+        do {
+          changed = 0;
+
+          // 1. Move伝播 (Window探索)
+          changed |= optimize_move_propagation(func_start, func_end);
+
+          changed |= optimize_load_move_range(func_start, func_end);
+          // 2. 定数・アドレス計算の畳み込み
+          changed |= optimize_addiu_chain_range(func_start, func_end);
+
+          changed |= optimize_address_range(func_start, func_end);
+
+          // 3. デッドコード削除
+          changed |= optimize_dead_def(func_start, func_end);
+
+          loop_count++;
+        } while (changed && loop_count < 10); // 無限ループ防止で上限を設ける
+
+        cur = func_end;
       }
-
-      // マーカーが正しく見つかった場合のみ処理
-      if (body_start && body_end) {
-
-        // 解析範囲: プロローグ終了の次の命令 ～ エピローグ開始の手前
-        Code *scan_start = body_start->next;
-        Code *scan_end = body_end;
-
-        // まず、この関数が「葉関数 (Leaf Function)」かチェック
-        // JAL (関数呼び出し) があれば、引数レジスタ $a0-$a3
-        // は保存されないので最適化不可
-        int has_call = 0;
-        Code *check = scan_start;
-        while (check != scan_end) {
-          if (check->kind == CODE_INSN &&
-              (check->insn.code == ASM_JAL || check->insn.code == ASM_JALR)) {
-            has_call = 1;
-            break;
-          }
-          check = check->next;
-        }
-
-        if (!has_call) {
-          // プロローグ直後にある "move $sX, $aY" を探す
-          Code *p = scan_start;
-
-          while (p != scan_end) {
-            if (p->kind == CODE_INSN) {
-              AsmInst *insn = &p->insn;
-
-              // Move命令判定 (ADDU dst, src, $zero)
-              int is_move =
-                  (insn->code == ASM_ADDU && insn->op3.type == OP_REG &&
-                   insn->op3.reg == R_ZERO);
-
-              if (is_move) {
-                MipsReg dst = insn->op1.reg; // $sX
-                MipsReg src = insn->op2.reg; // $aY
-
-                // 対象: srcが $a0-$a3 (引数)、dstが $s0-$s7 (保存レジスタ)
-                if (src >= R_A0 && src <= R_A3 && dst >= R_S0 && dst <= R_S7) {
-
-                  // src ($aY) がこの関数内で上書きされていないか？
-                  if (!is_reg_clobbered(scan_start, scan_end, src)) {
-
-                    replace_reg(p->next, scan_end, dst, src);
-
-                    // 2. この Move 命令を削除 (NOP化)
-                    insn->code = ASM_NOP;
-                  }
-                }
-              }
-            }
-            p = p->next;
-          }
-        }
-      }
-      // 次の関数へ進むために cur を body_end まで進める
-      if (body_end)
-        cur = body_end;
     }
     cur = cur->next;
   }

@@ -102,17 +102,8 @@ int main(int argc, char *argv[]) {
 
     optimize_branch(cl);
 
-    // addi の畳み込み
-    optimize_addiu_chain(cl);
 
-    // addressの最適化
-    optimize_address(cl);
-
-    optimize_load_move(cl);
-
-    optimize_move_chain(cl);
-
-    optimize_leaf_func(cl);
+    optimize_per_function(cl);
 
     // nopの削除
     optimize_nop(cl);

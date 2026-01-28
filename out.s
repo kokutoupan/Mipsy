@@ -43,12 +43,11 @@ quicksort:
     j IF_END1
     nop
 IF_T0:
-    addu $t0, $s0, $zero
     sll $t1, $s2, 2
-    addu $t0, $t0, $t1
+    addu $t0, $s0, $t1
     lw $s5, 0($t0)
     addiu $s3, $s1, -1
-    addiu $s4, $s2, 0
+    addu $s4, $s2, $zero
     j loop_cond2
     nop
 loop_head3:
@@ -58,9 +57,8 @@ loop_head3:
 loop_head6:
     addiu $s3, $s3, 1
 loop_cond5:
-    addu $t0, $s0, $zero
     sll $t1, $s3, 2
-    addu $t0, $t0, $t1
+    addu $t0, $s0, $t1
     lw $t0, 0($t0)
     nop
     subu $t0, $t0, $s5
@@ -82,9 +80,8 @@ IF_T11:
 IF_END12:
     addiu $s4, $s4, -1
 loop_cond8:
-    addu $t0, $s0, $zero
     sll $t1, $s4, 2
-    addu $t0, $t0, $t1
+    addu $t0, $s0, $t1
     lw $t0, 0($t0)
     nop
     subu $t0, $s5, $t0
@@ -102,46 +99,34 @@ IF_T13:
     j loop_end4
     nop
 IF_END14:
-    addu $t0, $s0, $zero
     sll $t1, $s3, 2
-    addu $t0, $t0, $t1
+    addu $t0, $s0, $t1
     lw $s6, 0($t0)
-    addu $t0, $s0, $zero
     sll $t1, $s4, 2
-    addu $t0, $t0, $t1
+    addu $t0, $s0, $t1
     lw $t0, 0($t0)
-    addu $t1, $s0, $zero
     sll $t2, $s3, 2
-    addu $t1, $t1, $t2
+    addu $t1, $s0, $t2
     sw $t0, 0($t1)
-    addu $t0, $s6, $zero
-    addu $t1, $s0, $zero
     sll $t2, $s4, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
+    addu $t1, $s0, $t2
+    sw $s6, 0($t1)
 loop_cond2:
-    addi $t0, $zero, 1
-    addi $t1, $zero, 1
     j loop_head3
     nop
 loop_end4:
-    addu $t0, $s0, $zero
     sll $t1, $s3, 2
-    addu $t0, $t0, $t1
+    addu $t0, $s0, $t1
     lw $s6, 0($t0)
-    addu $t0, $s0, $zero
     sll $t1, $s2, 2
-    addu $t0, $t0, $t1
+    addu $t0, $s0, $t1
     lw $t0, 0($t0)
-    addu $t1, $s0, $zero
     sll $t2, $s3, 2
-    addu $t1, $t1, $t2
+    addu $t1, $s0, $t2
     sw $t0, 0($t1)
-    addu $t0, $s6, $zero
-    addu $t1, $s0, $zero
     sll $t2, $s2, 2
-    addu $t1, $t1, $t2
-    sw $t0, 0($t1)
+    addu $t1, $s0, $t2
+    sw $s6, 0($t1)
     addu $a0, $s0, $zero
     addu $a1, $s1, $zero
     addiu $a2, $s3, -1
@@ -195,7 +180,7 @@ main:
     sw $t0, 32($fp)
     addi $t0, $zero, 8
     sw $t0, 36($fp)
-    addiu $a0, $fp, 0
+    addu $a0, $fp, $zero
     addi $a1, $zero, 0
     addi $a2, $zero, 9
     jal quicksort
