@@ -112,6 +112,8 @@ int main(int argc, char *argv[]) {
 
     optimize_move_chain(cl);
 
+    optimize_leaf_func(cl);
+
     // nopの削除
     optimize_nop(cl);
   }

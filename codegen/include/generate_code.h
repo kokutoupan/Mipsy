@@ -15,3 +15,6 @@ void optimize_addiu_chain(CodeList *list);
 void optimize_branch(CodeList *list);
 
 void optimize_move_chain(CodeList *list);
+
+void optimize_leaf_func(CodeList *list);
+

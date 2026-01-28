@@ -49,8 +49,9 @@ Operand get_operand(CodeList *out, Node *node, MipsReg reg) {
     VarEntry *ent = var_find(&vartable, node->str);
     if (ent && ent->reg_idx != -1) {
       // MOVE reg, $sX  (ADDU reg, $sX, $zero)
-      append_code(out, new_code_r(ASM_ADDU, reg, ent->reg_idx, R_ZERO));
-      return op;
+      // append_code(out, new_code_r(ASM_ADDU, reg, ent->reg_idx, R_ZERO));
+      // return op;
+      return (Operand){OP_REG, ent->reg_idx};
     }
   }
 
@@ -84,6 +85,9 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
   // 右辺 (レジスタを1つずらして評価)
   Operand op2 = get_operand(out, node->node1, reg + 1);
 
+  // 結果の格納先レジスタ
+  Operand dest = {OP_REG, reg};
+
   AsmCode asmc;
   int shift;
 
@@ -93,7 +97,7 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
       asmc = ASM_ADDU;
     else
       asmc = ASM_ADDIU;
-    append_code(out, new_code(asmc, op1, op1, op2));
+    append_code(out, new_code(asmc, dest, op1, op2));
     break;
 
   case OP_SUB:
@@ -103,13 +107,13 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
       asmc = ASM_ADDIU;
       op2.imm *= -1; // SUBIはないのでADDIで負数を足す
     }
-    append_code(out, new_code(asmc, op1, op1, op2));
+    append_code(out, new_code(asmc, dest, op1, op2));
     break;
 
   case OP_MUL:
     if (op2.type == OP_IMM) {
       if ((shift = get_power_of_2(op2.imm)) > 0) {
-        append_code(out, new_code(ASM_SLL, op1, op1, op2));
+        append_code(out, new_code(ASM_SLL, dest, op1, op2));
       }
       op2 = imm2reg(out, op2, reg + 1);
     }
@@ -134,31 +138,31 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
   case OP_AND: // &
     if (op2.type == OP_IMM)
       op2 = imm2reg(out, op2, reg + 1);
-    append_code(out, new_code(ASM_AND, op1, op1, op2));
+    append_code(out, new_code(ASM_AND, dest, op1, op2));
     break;
 
   case OP_OR: // |
     if (op2.type == OP_IMM)
       op2 = imm2reg(out, op2, reg + 1);
-    append_code(out, new_code(ASM_OR, op1, op1, op2));
+    append_code(out, new_code(ASM_OR, dest, op1, op2));
     break;
 
   case OP_XOR: // ^
     if (op2.type == OP_IMM)
       op2 = imm2reg(out, op2, reg + 1);
-    append_code(out, new_code(ASM_XOR, op1, op1, op2));
+    append_code(out, new_code(ASM_XOR, dest, op1, op2));
     break;
 
   case OP_LSHIFT: // <<
     if (op2.type == OP_IMM)
       op2 = imm2reg(out, op2, reg + 1);
-    append_code(out, new_code(ASM_SLLV, op1, op1, op2));
+    append_code(out, new_code(ASM_SLLV, dest, op1, op2));
     break;
 
   case OP_RSHIFT: // >> (算術右シフト)
     if (op2.type == OP_IMM)
       op2 = imm2reg(out, op2, reg + 1);
-    append_code(out, new_code(ASM_SRAV, op1, op1, op2));
+    append_code(out, new_code(ASM_SRAV, dest, op1, op2));
     break;
 
   default:

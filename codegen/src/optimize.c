@@ -662,3 +662,161 @@ void optimize_move_chain(CodeList *list) {
     cur = cur->next;
   }
 }
+
+// 指定範囲内でレジスタへの書き込み(clobber)があるかチェック
+static int is_reg_clobbered(Code *start, Code *end, MipsReg reg) {
+  Code *cur = start;
+  while (cur != end && cur != NULL) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+
+      // 1. 関数呼び出し (JAL) があるか?
+      // 呼び出し規約上、$a0-$a3, $t0-$t9, $v0-$v1, $ra は破壊されるとみなす
+      if (insn->code == ASM_JAL || insn->code == ASM_JALR) {
+        if (reg >= R_A0 && reg <= R_A3)
+          return 1;
+        if (reg >= R_T0 && reg <= R_T9)
+          return 1;
+        if (reg >= R_V0 && reg <= R_V1)
+          return 1;
+        if (reg == R_RA)
+          return 1;
+      }
+
+      // 2. 明示的な書き込み (rd = reg)
+      int is_write = 0;
+
+      // ストア命令や分岐命令は「レジスタへの書き込み」ではない
+      if (insn->code == ASM_SW || insn->code == ASM_SB ||
+          insn->code == ASM_BEQ || insn->code == ASM_BNE ||
+          insn->code == ASM_JR) {
+        is_write = 0;
+      }
+      // それ以外の演算命令・ロード命令は op1 が書き込み先
+      else if (insn->op1.type == OP_REG && insn->op1.reg == reg) {
+        is_write = 1;
+      }
+
+      if (is_write) {
+        // 例外: "move reg, reg" (自分への代入) は値が変わらないので無視可能
+        // ADDU reg, reg, $zero
+        if (insn->code == ASM_ADDU && insn->op2.type == OP_REG &&
+            insn->op2.reg == reg && insn->op3.type == OP_REG &&
+            insn->op3.reg == R_ZERO) {
+          // 安全
+        } else {
+          return 1; // 上書きあり
+        }
+      }
+    }
+    cur = cur->next;
+  }
+  return 0; // 上書きなし
+}
+
+/* ヘルパー: 指定範囲内のレジスタ使用を置換する */
+static void replace_reg(Code *start, Code *end, MipsReg old_reg,
+                        MipsReg new_reg) {
+  Code *cur = start;
+  while (cur != end && cur != NULL) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+      // op1, op2, op3 のレジスタ番号をチェックして置換
+      if (insn->op1.type == OP_REG && insn->op1.reg == old_reg)
+        insn->op1.reg = new_reg;
+      if (insn->op2.type == OP_REG && insn->op2.reg == old_reg)
+        insn->op2.reg = new_reg;
+      if (insn->op3.type == OP_REG && insn->op3.reg == old_reg)
+        insn->op3.reg = new_reg;
+    }
+    cur = cur->next;
+  }
+}
+
+/* 葉関数最適化: 引数レジスタ($aX)を直接使用する
+ */
+void optimize_leaf_func(CodeList *list) {
+  if (!list || !list->head)
+    return;
+
+  Code *cur = list->head;
+
+  while (cur != NULL) {
+    // 関数開始マーカーを見つける
+    if (cur->kind == CODE_FUNC_ENTER) {
+
+      // 1. 本体の範囲 (PROLOGUE_END ～ EPILOGUE_START) を特定
+      Code *body_start = cur;
+      while (body_start && body_start->kind != CODE_PROLOGUE_END) {
+        body_start = body_start->next;
+      }
+
+      Code *body_end = body_start;
+      while (body_end && body_end->kind != CODE_EPILOGUE_START &&
+             body_end != NULL) {
+        body_end = body_end->next;
+      }
+
+      // マーカーが正しく見つかった場合のみ処理
+      if (body_start && body_end) {
+
+        // 解析範囲: プロローグ終了の次の命令 ～ エピローグ開始の手前
+        Code *scan_start = body_start->next;
+        Code *scan_end = body_end;
+
+        // まず、この関数が「葉関数 (Leaf Function)」かチェック
+        // JAL (関数呼び出し) があれば、引数レジスタ $a0-$a3
+        // は保存されないので最適化不可
+        int has_call = 0;
+        Code *check = scan_start;
+        while (check != scan_end) {
+          if (check->kind == CODE_INSN &&
+              (check->insn.code == ASM_JAL || check->insn.code == ASM_JALR)) {
+            has_call = 1;
+            break;
+          }
+          check = check->next;
+        }
+
+        if (!has_call) {
+          // プロローグ直後にある "move $sX, $aY" を探す
+          Code *p = scan_start;
+
+          while (p != scan_end) {
+            if (p->kind == CODE_INSN) {
+              AsmInst *insn = &p->insn;
+
+              // Move命令判定 (ADDU dst, src, $zero)
+              int is_move =
+                  (insn->code == ASM_ADDU && insn->op3.type == OP_REG &&
+                   insn->op3.reg == R_ZERO);
+
+              if (is_move) {
+                MipsReg dst = insn->op1.reg; // $sX
+                MipsReg src = insn->op2.reg; // $aY
+
+                // 対象: srcが $a0-$a3 (引数)、dstが $s0-$s7 (保存レジスタ)
+                if (src >= R_A0 && src <= R_A3 && dst >= R_S0 && dst <= R_S7) {
+
+                  // src ($aY) がこの関数内で上書きされていないか？
+                  if (!is_reg_clobbered(scan_start, scan_end, src)) {
+
+                    replace_reg(p->next, scan_end, dst, src);
+
+                    // 2. この Move 命令を削除 (NOP化)
+                    insn->code = ASM_NOP;
+                  }
+                }
+              }
+            }
+            p = p->next;
+          }
+        }
+      }
+      // 次の関数へ進むために cur を body_end まで進める
+      if (body_end)
+        cur = body_end;
+    }
+    cur = cur->next;
+  }
+}
