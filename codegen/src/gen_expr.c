@@ -19,6 +19,35 @@ int get_power_of_2(int x) {
   return n;
 }
 
+// ノードの評価に必要なレジスタ数（重み）を計算
+int get_weight(Node *node) {
+  if (!node)
+    return 0;
+
+  // 1. 即値・レジスタ変数は計算済みとみなす (重み0)
+  if (node->id == ND_NUM)
+    return 0;
+  if (node->id == ND_IDENT) {
+    VarEntry *ent = var_find(&vartable, node->str);
+    if (ent && ent->reg_idx != -1)
+      return 0; // レジスタ変数
+  }
+
+  // 2. 演算式: 左右の重みを比較
+  if (node->id == ND_ARITH) {
+    int w1 = get_weight(node->node0); // 左
+    int w2 = get_weight(node->node1); // 右
+
+    // Sethi-Ullmanの基本ルール:
+    if (w1 == w2)
+      return w1 + 1;
+    return (w1 > w2) ? w1 : w2;
+  }
+
+  // 3. その他（メモリロードが必要な変数など）は最低1つ必要
+  return 1;
+}
+
 Operand imm2reg(CodeList *out, Operand op, MipsReg reg) {
   if (op.type == OP_REG)
     return op; // 既にレジスタならそのまま
@@ -77,13 +106,39 @@ Operand get_operand(CodeList *out, Node *node, MipsReg reg) {
 
 // 演算式の評価
 void expr_eval(CodeList *out, Node *node, MipsReg reg) {
-  // 左辺
-  Operand op1 = get_operand(out, node->node0, reg);
-  if (op1.type == OP_IMM)
-    op1 = imm2reg(out, op1, reg);
 
-  // 右辺 (レジスタを1つずらして評価)
-  Operand op2 = get_operand(out, node->node1, reg + 1);
+  if (reg > R_T7) {
+    fprintf(stderr, "Fatal Error: Register exhausted ($t0-$t7 used up).\n");
+    fprintf(stderr, "Expression is too complex to compile without spilling.\n");
+    exit(1);
+  }
+
+  // 重みを計算
+  int w0 = get_weight(node->node0); // 左
+  int w1 = get_weight(node->node1); // 右
+
+  Operand op1, op2;
+
+  if (w0 < w1) {
+
+    // 1. 右辺を先に評価 (reg を使用)
+    op2 = get_operand(out, node->node1, reg);
+    if (op2.type == OP_IMM)
+      op2 = imm2reg(out, op2, reg);
+
+    // 2. 左辺を評価 (reg + 1 を使用)
+    op1 = get_operand(out, node->node0, reg + 1);
+    if (op1.type == OP_IMM)
+      op1 = imm2reg(out, op1, reg + 1);
+  } else {
+    // 左辺
+    op1 = get_operand(out, node->node0, reg);
+    if (op1.type == OP_IMM)
+      op1 = imm2reg(out, op1, reg);
+
+    // 右辺 (レジスタを1つずらして評価)
+    op2 = get_operand(out, node->node1, reg + 1);
+  }
 
   // 結果の格納先レジスタ
   Operand dest = {OP_REG, reg};
