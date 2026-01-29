@@ -16,6 +16,7 @@ string {alphanumeric}+
 =             {return ASSIGN;}
 ;             {return SEMIC;}
 ==              {return EQ;}
+"!="            {return NEQ;}
 \<               {return LT;}
 \>               {return GT;}
 "<="              {return LEQ;}

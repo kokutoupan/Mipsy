@@ -25,7 +25,7 @@ typedef enum {
   ND_REG_DEF
 } NodeType;
 
-typedef enum { OP_EQ, OP_LT, OP_GT, OP_LEQ, OP_GEQ } CompOp;
+typedef enum { OP_EQ, OP_NEQ, OP_LT, OP_GT, OP_LEQ, OP_GEQ } CompOp;
 typedef enum {
   OP_ADD,
   OP_SUB,

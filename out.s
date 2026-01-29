@@ -36,66 +36,53 @@ quicksort:
     addu $s1, $a1, $zero
     addu $s2, $a2, $zero
 # PROLOGUE END
-    subu $t0, $s1, $s2
-    sra $t0, $t0, 31
-    bne $t0, $zero, IF_T0
+    slt $t0, $s1, $s2
+    beq $t0, $zero, IF_END0
     nop
-    j IF_END1
-    nop
-IF_T0:
     sll $t1, $s2, 2
     addu $t0, $s0, $t1
     lw $s5, 0($t0)
     addiu $s3, $s1, -1
-    j loop_cond2
+    j loop_cond1
     addu $s4, $s2, $zero
-loop_head3:
-    j loop_cond5
+loop_head2:
+    j loop_cond4
     addiu $s3, $s3, 1
-loop_head6:
+loop_head5:
     addiu $s3, $s3, 1
-loop_cond5:
+loop_cond4:
     sll $t1, $s3, 2
     addu $t0, $s0, $t1
     lw $t0, 0($t0)
     nop
-    subu $t0, $t0, $s5
-    sra $t0, $t0, 31
-    bne $t0, $zero, loop_head6
+    slt $t0, $t0, $s5
+    bne $t0, $zero, loop_head5
     nop
-loop_end7:
-    j loop_cond8
+loop_end6:
+    j loop_cond7
     addiu $s4, $s4, -1
-loop_head9:
-    beq $s4, $s1, IF_T11
+loop_head8:
+    bne $s4, $s1, IF_END10
     nop
-    j IF_END12
+    j loop_end9
     nop
-IF_T11:
-    j loop_end10
-    nop
-IF_END12:
+IF_END10:
     addiu $s4, $s4, -1
-loop_cond8:
+loop_cond7:
     sll $t1, $s4, 2
     addu $t0, $s0, $t1
     lw $t0, 0($t0)
     nop
-    subu $t0, $s5, $t0
-    sra $t0, $t0, 31
-    bne $t0, $zero, loop_head9
+    slt $t0, $s5, $t0
+    bne $t0, $zero, loop_head8
     nop
-loop_end10:
-    subu $t0, $s3, $s4
-    sra $t0, $t0, 31
-    beq $t0, $zero, IF_T13
+loop_end9:
+    slt $t0, $s3, $s4
+    bne $t0, $zero, IF_END11
     nop
-    j IF_END14
+    j loop_end3
     nop
-IF_T13:
-    j loop_end4
-    nop
-IF_END14:
+IF_END11:
     sll $t1, $s3, 2
     addu $t0, $s0, $t1
     lw $s6, 0($t0)
@@ -108,10 +95,10 @@ IF_END14:
     sll $t2, $s4, 2
     addu $t1, $s0, $t2
     sw $s6, 0($t1)
-loop_cond2:
-    j loop_head3
+loop_cond1:
+    j loop_head2
     nop
-loop_end4:
+loop_end3:
     sll $t1, $s3, 2
     addu $t0, $s0, $t1
     lw $s6, 0($t0)
@@ -132,7 +119,7 @@ loop_end4:
     addiu $a1, $s3, 1
     jal quicksort
     addu $a2, $s2, $zero
-IF_END1:
+IF_END0:
 # EPILOGUE START
     ori $sp, $fp, 0
     lw $s0, 0($sp)

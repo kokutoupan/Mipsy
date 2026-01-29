@@ -7,7 +7,8 @@
 static char *current_break_label = NULL;
 
 // 条件式の評価
-void cond_eval(CodeList *out, Node *node, char *t_label, MipsReg reg) {
+void cond_eval(CodeList *out, Node *node, char *t_label, MipsReg reg,
+               int invert) {
   // 左辺
   Operand op1 = get_operand(out, node->node0, reg);
   if (op1.type == OP_IMM)
@@ -17,71 +18,101 @@ void cond_eval(CodeList *out, Node *node, char *t_label, MipsReg reg) {
   Operand op2 = get_operand(out, node->node1, reg + 1);
 
   // == の最適化 (BEQ命令)
-  if (node->extra == OP_EQ) {
+  if (node->extra == OP_EQ || node->extra == OP_NEQ) {
     if (op2.type == OP_IMM)
       op2 = imm2reg(out, op2, reg + 1);
-    append_code(out, new_code_branch(ASM_BEQ, op1.reg, op2.reg, t_label));
+
+    AsmCode code;
+    if (node->extra == OP_EQ)
+      code = (invert) ? ASM_BNE : ASM_BEQ;
+    else
+      code = (invert) ? ASM_BEQ : ASM_BNE;
+
+    append_code(out, new_code_branch(code, op1.reg, op2.reg, t_label));
     append_code(out, new_code0(ASM_NOP));
     return;
   }
 
-  // <, <=, >, >= の処理
-  // 元のコードと同様、GTとLEQの場合はオペランドを入れ替える
-  if (node->extra == OP_GT || node->extra == OP_LEQ) {
-    Operand tmp = op1;
-    op1 = op2;
-    op2 = tmp;
+  // 大小比較 (<, <=, >, >=)
+  // slt rd, rs, rt  =>  if (rs < rt) rd=1 else rd=0
+
+  Operand slt_op1 = op1;
+  Operand slt_op2 = op2;
+  int check_eq_zero = 0; // 結果が0(偽)なら分岐するか、1(真)なら分岐するか
+
+  /*
+   * 条件   | SLTでの表現      | 真のときSLT結果 | 偽でJmp(inv=1) |
+   * -----------------------------------------------------------------------
+   * A < B  | slt t, A, B     | 1               | beq t, zero    | bne t, zero
+   * A > B  | slt t, B, A     | 1               | beq t, zero    | bne t, zero
+   * A <= B | ! (B < A)       | 0 (B<Aが偽)     | bne t, zero    | beq t, zero
+   * A >= B | ! (A < B)       | 0 (A<Bが偽)     | bne t, zero    | beq t, zero
+   */
+
+  switch (node->extra) {
+  case OP_LT: // <
+    check_eq_zero = (invert) ? 1 : 0;
+    break;
+  case OP_GT: // >
+    slt_op1 = op2;
+    slt_op2 = op1;
+    check_eq_zero = (invert) ? 1 : 0;
+    break;
+  case OP_LEQ: // <=
+    slt_op1 = op2;
+    slt_op2 = op1;
+    check_eq_zero = (invert) ? 0 : 1;
+    break;
+  case OP_GEQ: // >=
+    check_eq_zero = (invert) ? 0 : 1;
+    break;
   }
 
-  AsmCode asmc;
-  if (op2.type == OP_REG) {
-    asmc = ASM_SUBU;
+  // 即値対応 (SLTI)
+  if (slt_op2.type == OP_IMM) {
+    append_code(out, new_code_i(ASM_SLTI, reg, slt_op1.reg, slt_op2.imm));
   } else {
-    asmc = ASM_ADDIU;
-    op2.imm *= -1; // 引く代わりに負数を足す
+    append_code(out,
+                new_code(ASM_SLT, (Operand){OP_REG, reg}, slt_op1, slt_op2));
   }
 
-  // reg = op1 - op2
-  append_code(out, new_code(asmc, (Operand){OP_REG, reg}, op1, op2));
-
-  // 符号ビットを取り出す (reg < 0 なら -1 (全ビット1), 0以上なら 0 になる)
-  append_code(out, new_code_i(ASM_SRA, reg, reg, 31));
-
-  // 条件分岐
-  // LT (<) または GT (>) の場合
-  // GTは上でオペランド交換しているので、実質「差が負なら真」
-  if (node->extra == OP_LT || node->extra == OP_GT) {
-    // 符号ビットが 0 でない (つまり負) ならジャンプ
-    append_code(out, new_code_branch(ASM_BNE, reg, R_ZERO, t_label));
-  } else {
-    // LEQ (<=) または GEQ (>=) の場合
-    // LEQは上でオペランド交換しているので、実質「差が非負なら真」
-    // SRAの結果が 0 (非負) ならジャンプ
-    append_code(out, new_code_branch(ASM_BEQ, reg, R_ZERO, t_label));
-  }
+  // 分岐生成
+  AsmCode branch_code = (check_eq_zero) ? ASM_BEQ : ASM_BNE;
+  append_code(out, new_code_branch(branch_code, reg, R_ZERO, t_label));
   append_code(out, new_code0(ASM_NOP));
 }
 
 void gen_if(CodeList *out, Node *node) {
-  char *t_label = new_label_pref("IF_T");
-  char *e_label = new_label_pref("IF_END");
-
-  // 条件判定 ($t0 を使用)
-  cond_eval(out, node->node0, t_label, R_T0);
-
-  // Falseの場合 (Else節または終了へ)
   if (node->id == ND_IF_ELSE) {
-    gen_stmt_list(out, node->node2); // Else block
+    char *e_label = new_label_pref("IF_ELSE");
+    char *end_label = new_label_pref("IF_END");
+
+    // 偽なら Else へ
+    cond_eval(out, node->node0, e_label, R_T0, 1);
+
+    // true
+    gen_stmt_list(out, node->node1);
+    append_code(out, new_code_j(ASM_J, end_label));
+    append_code(out, new_code0(ASM_NOP));
+
+    // Else Block
+    append_code(out, new_label(e_label));
+    gen_stmt_list(out, node->node2);
+
+    append_code(out, new_label(end_label));
+
+  } else {
+    // Elseなし
+    char *end_label = new_label_pref("IF_END");
+
+    // 偽なら End へ
+    cond_eval(out, node->node0, end_label, R_T0, 1);
+
+    // Then Block
+    gen_stmt_list(out, node->node1);
+
+    append_code(out, new_label(end_label));
   }
-  append_code(out, new_code_j(ASM_J, e_label));
-  append_code(out, new_code0(ASM_NOP));
-
-  // Trueの場合
-  append_code(out, new_label(t_label));
-  gen_stmt_list(out, node->node1); // Then block
-
-  // 終了ラベル
-  append_code(out, new_label(e_label));
 }
 
 void gen_break(CodeList *out, Node *node) {
@@ -113,7 +144,7 @@ void gen_while(CodeList *out, Node *node) {
 
   // 条件判定
   append_code(out, new_label(loop_cond));
-  cond_eval(out, node->node0, loop_head, R_T0);
+  cond_eval(out, node->node0, loop_head, R_T0, 0);
   append_code(out, new_label(loop_end));
   current_break_label = prev_break;
 }
@@ -212,6 +243,7 @@ void gen_call(CodeList *out, Node *node, MipsReg reg) {
   append_code(out, new_code0(ASM_NOP)); // 遅延スロット
 }
 
+// 文の生成
 void gen_stmt(CodeList *out, Node *node) {
   if (node == NULL)
     return;

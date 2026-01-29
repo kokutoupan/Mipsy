@@ -36,7 +36,7 @@
 %left BITOR         /* | */
 %left BITXOR        /* ^ */
 %left BITAND        /* & */
-%left EQ LT GT LEQ GEQ /* 比較系 */
+%left EQ LT GT LEQ GEQ NEQ/* 比較系 */
 %left LSHIFT RSHIFT /* << >> */
 %left PLUS MINUS    /* + - */
 %left MULT DIVI MOD /* * / % */
@@ -249,6 +249,7 @@ Comp
   |   GT  {$$ = OP_GT;}
   |   LEQ {$$ = OP_LEQ;}
   |   GEQ {$$ = OP_GEQ;}
+  |   NEQ {$$ = OP_NEQ;}
   ;
 
 Idents
