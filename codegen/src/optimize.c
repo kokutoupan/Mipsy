@@ -946,7 +946,8 @@ int optimize_dead_def(Code *start, Code *end) {
 
       if (is_def) {
         // 後続で使われているかチェック
-        if (!is_reg_read_in_range(cur->next, end, target_reg)) {
+        if (target_reg != R_V0 && target_reg != R_V1 &&
+            !is_reg_read_in_range(cur->next, end, target_reg)) {
           // 削除 (NOP化)
           insn->code = ASM_NOP;
           changed = 1;
@@ -1180,8 +1181,8 @@ void optimize_per_function(CodeList *list) {
           // 3. デッドコード削除
           changed |= optimize_dead_def(func_start, func_end);
 
-          changed |= optimize_jump_range(func_start, func_end);
           changed |= optimize_branch_inversion(func_start, func_end);
+          changed |= optimize_jump_range(func_start, func_end);
 
           loop_count++;
         } while (changed && loop_count < 10); // 無限ループ防止で上限を設ける

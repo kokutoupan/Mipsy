@@ -12,6 +12,8 @@ CodeList codeList;
 static int used_s_regs = 0;
 VarType *make_type_from_dims(Node *dimlist);
 
+char *current_func_end = NULL;
+
 // 型のサイズ計算（配列のストライド計算用）
 int calc_stride(VarType *t) {
   if (t == NULL)
@@ -187,6 +189,9 @@ void func_head_code(CodeList *out, int size, int n_regs) {
 
 // 関数エピローグ (スタック解放・復帰)
 void func_bottom_code(CodeList *out, int size, int n_regs) {
+
+  append_code(out, new_label(current_func_end));
+
   int save_area_size = 8 + (n_regs * 4);
   int frame_size = size + save_area_size;
 
@@ -230,6 +235,8 @@ void gen_function(Node *func_node) {
 
   // 1. 関数ラベルの生成
   append_code(&codeList, new_label(func_node->str));
+
+  current_func_end = new_label_pref("$func_ep");
 
   // 2. 変数テーブル（スコープ）の初期化
   // 関数ごとにローカル変数はリセットされる

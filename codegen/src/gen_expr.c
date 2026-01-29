@@ -1,5 +1,7 @@
 #include "internal.h"
 #include "mips_code.h"
+#include "mips_reg.h"
+#include "types.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -42,6 +44,11 @@ int get_weight(Node *node) {
     if (w1 == w2)
       return w1 + 1;
     return (w1 > w2) ? w1 : w2;
+  }
+
+  if (node->id == ND_FUNC_CALL) {
+    // 4つぐらいかな?
+    return 4;
   }
 
   // 3. その他（メモリロードが必要な変数など）は最低1つ必要
@@ -100,6 +107,10 @@ Operand get_operand(CodeList *out, Node *node, MipsReg reg) {
   if (node->id == ND_ARITH) {
     expr_eval(out, node, reg);
     return op;
+  }
+
+  if (node->id == ND_FUNC_CALL) {
+    return gen_call(out, node, reg);
   }
 
   fprintf(stderr, "get_operand: unknown node type %d\n", node->id);
@@ -237,6 +248,86 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
     fprintf(stderr, "expr_eval: unknown op %d\n", node->extra);
     exit(1);
   }
+}
+
+Operand gen_call(CodeList *out, Node *node, MipsReg reg) {
+  // node->str : 関数名
+  // node->node0 : 引数リスト (ND_ARGS または 単体)
+
+  // 引数レジスタ $a0 ~ $a3
+  MipsReg arg_regs[] = {R_A0, R_A1, R_A2, R_A3};
+  int arg_idx = 0;
+
+  Node *cur = node->node0; // 引数の先頭
+
+  // 引数リストを走査して $a0... にセット
+  while (cur != NULL) {
+    if (arg_idx >= 4) {
+      fprintf(stderr, "error: too many arguments (max 4)\n");
+      exit(1);
+    }
+
+    // 引数ノードを取り出す
+    Node *arg_expr = NULL;
+    if (cur->id == ND_ARGS) {
+      arg_expr = cur->node0; // ND_ARGSなら左側が実引数
+      // cur->node1 が次のリスト
+    } else {
+      // リストの最後、または単体の引数
+      arg_expr = cur;
+    }
+
+    // 引数を評価して、一旦 reg (作業用) に入れる
+    // いきなり $a0 に入れないのは、式の評価中に $a0 を使う可能性があるため
+    Operand op = get_operand(out, arg_expr, reg);
+
+    if (op.type == OP_IMM) {
+      // 即値ならロード: li $a0, 10
+      append_code(out, new_code_i(ASM_ADDI, arg_regs[arg_idx], R_ZERO, op.imm));
+    } else {
+      // レジスタなら移動: move $a0, reg
+      append_code(out, new_code_r(ASM_ADDU, arg_regs[arg_idx], op.reg, R_ZERO));
+    }
+
+    arg_idx++;
+
+    // 次の引数へ
+    if (cur->id == ND_ARGS) {
+      cur = cur->node1;
+    } else {
+      break;
+    }
+  }
+
+  // caller saved
+  if (reg > R_T0) {
+    // メモリへ退避
+    int size = (reg - R_T0) * 4;
+    append_code(out, new_code_i(ASM_ADDI, R_SP, R_SP, -size));
+
+    for (int i = 0; i < (reg - R_T0); i++) {
+      append_code(out, new_code_i(ASM_SW, R_T0 + i, R_SP, i * 4));
+    }
+  }
+
+  // 関数呼び出し (JAL label)
+  append_code(out, new_code_j(ASM_JAL, node->str));
+  append_code(out, new_code0(ASM_NOP)); // 遅延スロット
+
+  // move
+  append_code(out, new_code_r(ASM_ADDU, reg, R_V0, R_ZERO));
+
+  // loader saved
+  if (reg > R_T0) {
+    // メモリから復帰
+    int size = (reg - R_T0) * 4;
+    for (int i = 0; i < (reg - R_T0); i++) {
+      append_code(out, new_code_i(ASM_LW, R_T0 + i, R_SP, i * 4));
+    }
+    append_code(out, new_code_i(ASM_ADDI, R_SP, R_SP, size));
+  }
+
+  return (Operand){.type = OP_REG, .reg = reg};
 }
 
 // 汎用エントリポイント (結果は $t0 固定)

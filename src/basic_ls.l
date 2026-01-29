@@ -41,7 +41,7 @@ string {alphanumeric}+
 \*               {return MULT;}
 \/               {return DIVI;}
 ,                {return COMMA;}
-"^"     { return PTR_DEREF; }
+"$"     { return PTR_DEREF; }
 "@"     { return ADDR_OF; }
 
 if              {return IF;}
@@ -51,6 +51,7 @@ define          {return DEFINE;}
 array           {return ARRAY;}
 func            {return FUNC;}
 funccall        {return FUNCCALL;}
+return          {return RETURN;}
 break           {return BREAK;}
 reg       { return REG;}
 

@@ -2,16 +2,14 @@ func foo(p){
     define z;
     define w;
     z = 21;
-    w = z * 3;
-    p^ = w;
+    w = z * p$;
+    return w;
 }
 
-
 func main(){
-define x;
-define y;
-define z;
+define x,y,z,w;
+
 x = 10;
 y = x + 2;
-funccall foo(@z);
+w = funccall foo(@x) + funccall foo(@y) * funccall foo(@z);
 }

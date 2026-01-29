@@ -1,8 +1,11 @@
 #include "internal.h"
+#include "mips_code.h"
 #include "mips_reg.h"
 #include "types.h"
 #include <stdio.h>
 #include <stdlib.h>
+
+extern char *current_func_end;
 
 static char *current_break_label = NULL;
 
@@ -196,58 +199,14 @@ void gen_assign(CodeList *out, Node *node) {
   append_code(out, new_code_i(ASM_SW, R_T0, addr, 0));
 }
 
-void gen_call(CodeList *out, Node *node, MipsReg reg) {
-  // node->str : 関数名
-  // node->node0 : 引数リスト (ND_ARGS または 単体)
 
-  // 引数レジスタ $a0 ~ $a3
-  MipsReg arg_regs[] = {R_A0, R_A1, R_A2, R_A3};
-  int arg_idx = 0;
-
-  Node *cur = node->node0; // 引数の先頭
-
-  // 引数リストを走査して $a0... にセット
-  while (cur != NULL) {
-    if (arg_idx >= 4) {
-      fprintf(stderr, "error: too many arguments (max 4)\n");
-      exit(1);
-    }
-
-    // 引数ノードを取り出す
-    Node *arg_expr = NULL;
-    if (cur->id == ND_ARGS) {
-      arg_expr = cur->node0; // ND_ARGSなら左側が実引数
-      // cur->node1 が次のリスト
-    } else {
-      // リストの最後、または単体の引数
-      arg_expr = cur;
-    }
-
-    // 引数を評価して、一旦 reg (作業用) に入れる
-    // いきなり $a0 に入れないのは、式の評価中に $a0 を使う可能性があるため
-    Operand op = get_operand(out, arg_expr, reg);
-
-    if (op.type == OP_IMM) {
-      // 即値ならロード: li $a0, 10
-      append_code(out, new_code_i(ASM_ADDI, arg_regs[arg_idx], R_ZERO, op.imm));
-    } else {
-      // レジスタなら移動: move $a0, reg
-      append_code(out, new_code_r(ASM_ADDU, arg_regs[arg_idx], op.reg, R_ZERO));
-    }
-
-    arg_idx++;
-
-    // 次の引数へ
-    if (cur->id == ND_ARGS) {
-      cur = cur->node1;
-    } else {
-      break;
-    }
+void gen_return(CodeList *out, Node *node, MipsReg reg) {
+  if (node && node->node0) {
+    Operand op = get_operand(out, node->node0, reg);
+    append_code(out, new_code_r(ASM_ADDU, R_V0, op.reg, R_ZERO));
   }
-
-  // 関数呼び出し (JAL label)
-  append_code(out, new_code_j(ASM_JAL, node->str));
-  append_code(out, new_code0(ASM_NOP)); // 遅延スロット
+  append_code(out, new_code_j(ASM_J, current_func_end));
+  append_code(out, new_code0(ASM_NOP));
 }
 
 // 文の生成
@@ -271,6 +230,9 @@ void gen_stmt(CodeList *out, Node *node) {
     break;
   case ND_FUNC_CALL:
     gen_call(out, node, R_T0);
+    break;
+  case ND_RETURN:
+    gen_return(out, node, R_T0);
     break;
   case ND_BREAK:
     gen_break(out, node);

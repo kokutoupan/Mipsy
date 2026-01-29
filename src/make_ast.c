@@ -269,3 +269,11 @@ Node *make_call_node(Node *name, Node *args) {
   n->node0 = args;
   return n;
 }
+
+Node* make_return_node(Node *value){
+  Node *n = malloc(sizeof(Node));
+  n->id = ND_RETURN;
+  n->node0 = value;
+  n->node1 = NULL;
+  return n;
+}

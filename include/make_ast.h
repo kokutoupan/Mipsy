@@ -28,3 +28,5 @@ Node *make_unary_node(NodeType type, Node *one);
 Node *make_function_node(Node *name, Node *locals, Node *body, Node *params);
 
 Node *make_call_node(Node *name, Node *args);
+
+Node *make_return_node(Node *value);

@@ -30,7 +30,7 @@
 %token EQ LT GT LEQ GEQ
 %token PLUS MINUS MULT DIVI
 %token IF ELSE WHILE BREAK DEFINE
-%token FUNC FUNCCALL
+%token FUNC FUNCCALL RETURN
 %token REG
 
 %left BITOR         /* | */
@@ -41,7 +41,7 @@
 %left PLUS MINUS    /* + - */
 %left MULT DIVI MOD /* * / % */
 %right ADDR_OF /* 単項 @ */
-%left  LSQ RSQ PTR_DEREF  /* a[i], p^ (後置は左結合・優先度高) */
+%left  LSQ RSQ PTR_DEREF  /* a[i], p$ (後置は左結合・優先度高) */
 
 %token  <n>IDENT <ival>NUMBER 
 
@@ -159,6 +159,15 @@ Sentence
   | FUNCCALL IDENT LPR Args RPR SEMIC{
       $$ = make_call_node($2, $4);
   }
+  | RETURN Formula SEMIC
+  {
+      $$ = make_return_node($2);
+  }
+  | RETURN SEMIC
+  {
+      $$ = make_return_node(NULL);
+  }
+
   | BREAK SEMIC{
       $$ = make_node(ND_BREAK);
   }
@@ -196,6 +205,10 @@ Formula
   | ADDR_OF Formula        { $$ = make_unary_node(ND_ADDR, $2); }
   | Variable               { $$ = $1; }
   | LPR Formula RPR        { $$ = $2; }
+  | FUNCCALL IDENT LPR Args RPR{
+    $$ = make_call_node($2, $4);
+  }
+
   ;
 
 Variable

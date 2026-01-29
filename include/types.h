@@ -13,6 +13,7 @@ typedef enum {
   ND_BLOCK,    // 文の並び (SentenceSet)
   ND_FUNC,     // 関数(初期はProgramも)
   ND_FUNC_CALL,
+  ND_RETURN,
   ND_ARGS,
   ND_DECLS, // 定義の並び (ValDeffineSection)
   ND_ARITH, // 算術演算 (+, -, *, /)
