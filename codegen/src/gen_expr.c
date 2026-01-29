@@ -51,6 +51,8 @@ int get_weight(Node *node) {
 Operand imm2reg(CodeList *out, Operand op, MipsReg reg) {
   if (op.type == OP_REG)
     return op; // 既にレジスタならそのまま
+  if (op.imm == 0)
+    return (Operand){OP_REG, R_ZERO};
   append_code(out, new_code_i(ASM_ADDI, reg, R_ZERO, op.imm));
   return (Operand){OP_REG, reg};
 }
@@ -177,14 +179,25 @@ void expr_eval(CodeList *out, Node *node, MipsReg reg) {
     break;
 
   case OP_DIV:
-    if (op2.type == OP_IMM)
+    if (op2.type == OP_IMM) {
+      if ((shift = get_power_of_2(op2.imm)) >= 0) {
+        append_code(out, new_code_i(ASM_SRL, reg, op1.reg, shift));
+        break;
+      }
       op2 = imm2reg(out, op2, reg + 1);
+    }
     append_code(out, new_code(ASM_DIVU, op1, op1, op2));
     append_code(out, new_code_r(ASM_MFLO, reg, reg, reg));
     break;
   case OP_MOD: // 剰余 (%)
-    if (op2.type == OP_IMM)
+    if (op2.type == OP_IMM) {
+      if ((shift = get_power_of_2(op2.imm)) >= 0) {
+        int mask = op2.imm - 1;
+        append_code(out, new_code_i(ASM_ANDI, reg, op1.reg, mask));
+        break;
+      }
       op2 = imm2reg(out, op2, reg + 1);
+    }
     append_code(out, new_code(ASM_DIVU, op1, op1, op2));
     append_code(
         out, new_code_r(ASM_MFHI, reg, reg, reg)); // Hiレジスタから余りを取得

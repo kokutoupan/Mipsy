@@ -11,14 +11,15 @@ void cond_eval(CodeList *out, Node *node, char *t_label, MipsReg reg,
                int invert) {
   // 左辺
   Operand op1 = get_operand(out, node->node0, reg);
-  if (op1.type == OP_IMM)
-    op1 = imm2reg(out, op1, reg);
 
   // 右辺 (reg+1 を作業用に使用)
   Operand op2 = get_operand(out, node->node1, reg + 1);
 
   // == の最適化 (BEQ命令)
   if (node->extra == OP_EQ || node->extra == OP_NEQ) {
+    if (op1.type == OP_IMM)
+      op1 = imm2reg(out, op1, reg);
+
     if (op2.type == OP_IMM)
       op2 = imm2reg(out, op2, reg + 1);
 
@@ -38,6 +39,7 @@ void cond_eval(CodeList *out, Node *node, char *t_label, MipsReg reg,
 
   Operand slt_op1 = op1;
   Operand slt_op2 = op2;
+  int swap = 0;
   int check_eq_zero = 0; // 結果が0(偽)なら分岐するか、1(真)なら分岐するか
 
   /*
@@ -56,17 +58,22 @@ void cond_eval(CodeList *out, Node *node, char *t_label, MipsReg reg,
   case OP_GT: // >
     slt_op1 = op2;
     slt_op2 = op1;
+    swap = 1;
     check_eq_zero = (invert) ? 1 : 0;
     break;
   case OP_LEQ: // <=
     slt_op1 = op2;
     slt_op2 = op1;
+    swap = 1;
     check_eq_zero = (invert) ? 0 : 1;
     break;
   case OP_GEQ: // >=
     check_eq_zero = (invert) ? 0 : 1;
     break;
   }
+
+  if (slt_op1.type == OP_IMM)
+    slt_op1 = imm2reg(out, slt_op1, reg + swap);
 
   // 即値対応 (SLTI)
   if (slt_op2.type == OP_IMM) {

@@ -3,7 +3,7 @@ define fizz;
 define buzz;
 define fizzbuzz;
 define others;
-define i;
+reg i;
 fizz = 0;
 buzz = 0;
 fizzbuzz = 0;
@@ -25,8 +25,4 @@ others = others + 1;
 }
 i = i + 1;
 }
-
-fizz = fizz;
-buzz = buzz;
-others = others;
 }
