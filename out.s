@@ -19,72 +19,155 @@ stop:                                           # if syscall return
         nop                             # (delay slot)                     
                                                                            
         .text   0x00001000              # 以降のコードを0x00001000から配置 
-# FUNCTION START foo:
-foo:
-    addiu $sp, $sp, -20
-    sw $ra, 16($sp)
-    sw $fp, 12($sp)
-    sw $s0, 8($sp)
+# FUNCTION START quicksort:
+quicksort:
+    addiu $sp, $sp, -36
+    sw $ra, 32($sp)
+    sw $fp, 28($sp)
+    sw $s0, 0($sp)
+    sw $s1, 4($sp)
+    sw $s2, 8($sp)
+    sw $s3, 12($sp)
+    sw $s4, 16($sp)
+    sw $s5, 20($sp)
+    sw $s6, 24($sp)
     ori $fp, $sp, 0
     addu $s0, $a0, $zero
+    addu $s1, $a1, $zero
+    addu $s2, $a2, $zero
 # PROLOGUE END
-    addi $t0, $zero, 21
-    sw $t0, 0($fp)
-    lw $t0, 0($fp)
-    lw $t1, 0($s0)
+    slt $t0, $s1, $s2
+    beq $t0, $zero, IF_END1
     nop
-    multu $t0, $t1
-    mflo $t0
-    sw $t0, 4($fp)
-    lw $v0, 4($fp)
+    sll $t1, $s2, 2
+    addu $t0, $s0, $t1
+    lw $s5, 0($t0)
+    addiu $s3, $s1, -1
+    addu $s4, $s2, $zero
+loop_head3:
+    j loop_cond5
+    addiu $s3, $s3, 1
+loop_head6:
+    addiu $s3, $s3, 1
+loop_cond5:
+    sll $t1, $s3, 2
+    addu $t0, $s0, $t1
+    lw $t0, 0($t0)
+    nop
+    slt $t0, $t0, $s5
+    bne $t0, $zero, loop_head6
+    nop
+loop_end7:
+    j loop_cond8
+    addiu $s4, $s4, -1
+loop_head9:
+    beq $s4, $s1, loop_end10
+    nop
+IF_END11:
+    addiu $s4, $s4, -1
+loop_cond8:
+    sll $t1, $s4, 2
+    addu $t0, $s0, $t1
+    lw $t0, 0($t0)
+    nop
+    slt $t0, $s5, $t0
+    bne $t0, $zero, loop_head9
+    nop
+loop_end10:
+    slt $t0, $s3, $s4
+    beq $t0, $zero, loop_end4
+    nop
+IF_END12:
+    sll $t1, $s3, 2
+    addu $t0, $s0, $t1
+    lw $s6, 0($t0)
+    sll $t1, $s4, 2
+    addu $t0, $s0, $t1
+    lw $t0, 0($t0)
+    sll $t2, $s3, 2
+    addu $t1, $s0, $t2
+    sw $t0, 0($t1)
+    sll $t2, $s4, 2
+    addu $t1, $s0, $t2
+    sw $s6, 0($t1)
+loop_cond2:
+    j loop_cond5
+    addiu $s3, $s3, 1
+loop_end4:
+    sll $t1, $s3, 2
+    addu $t0, $s0, $t1
+    lw $s6, 0($t0)
+    sll $t1, $s2, 2
+    addu $t0, $s0, $t1
+    lw $t0, 0($t0)
+    sll $t2, $s3, 2
+    addu $t1, $s0, $t2
+    sw $t0, 0($t1)
+    sll $t2, $s2, 2
+    addu $t1, $s0, $t2
+    sw $s6, 0($t1)
+    addu $a0, $s0, $zero
+    addu $a1, $s1, $zero
+    jal quicksort
+    addiu $a2, $s3, -1
+    addu $a0, $s0, $zero
+    addiu $a1, $s3, 1
+    jal quicksort
+    addu $a2, $s2, $zero
+IF_END1:
 # EPILOGUE START
 $func_ep0:
     ori $sp, $fp, 0
-    lw $s0, 8($sp)
-    lw $ra, 16($sp)
-    lw $fp, 12($sp)
+    lw $s0, 0($sp)
+    lw $s1, 4($sp)
+    lw $s2, 8($sp)
+    lw $s3, 12($sp)
+    lw $s4, 16($sp)
+    lw $s5, 20($sp)
+    lw $s6, 24($sp)
+    lw $ra, 32($sp)
+    lw $fp, 28($sp)
     jr $ra
-    addiu $sp, $sp, 20
+    addiu $sp, $sp, 36
 # FUNCTION END
 # FUNCTION START main:
 main:
-    addiu $sp, $sp, -24
-    sw $ra, 20($sp)
-    sw $fp, 16($sp)
+    addiu $sp, $sp, -48
+    sw $ra, 44($sp)
+    sw $fp, 40($sp)
     ori $fp, $sp, 0
 # PROLOGUE END
     addi $t0, $zero, 10
     sw $t0, 0($fp)
-    lw $t0, 0($fp)
-    nop
-    addiu $t0, $t0, 2
+    addi $t0, $zero, 4
     sw $t0, 4($fp)
-    jal foo
-    addiu $a0, $fp, 4
-    addiu $a0, $fp, 8
-    addi $sp, $sp, -4
-    jal foo
-    sw $v0, 0($sp)
-    addu $t1, $v0, $zero
-    lw $t0, 0($sp)
-    addi $sp, $sp, 4
-    multu $t0, $v0
-    mflo $t0
-    addu $a0, $fp, $zero
-    addi $sp, $sp, -4
-    jal foo
-    sw $t0, 0($sp)
-    lw $t0, 0($sp)
-    nop
-    addu $t0, $v0, $t0
+    addi $t0, $zero, 2
+    sw $t0, 8($fp)
+    addi $t0, $zero, 7
     sw $t0, 12($fp)
+    addi $t0, $zero, 3
+    sw $t0, 16($fp)
+    addi $t0, $zero, 5
+    sw $t0, 20($fp)
+    addi $t0, $zero, 9
+    sw $t0, 24($fp)
+    addi $t0, $zero, 10
+    sw $t0, 28($fp)
+    addi $t0, $zero, 1
+    sw $t0, 32($fp)
+    addi $t0, $zero, 8
+    sw $t0, 36($fp)
+    addu $a0, $fp, $zero
+    addi $a1, $zero, 0
+    jal quicksort
+    addi $a2, $zero, 9
 # EPILOGUE START
-$func_ep1:
+$func_ep13:
     ori $sp, $fp, 0
-    lw $ra, 20($sp)
-    lw $fp, 16($sp)
+    lw $ra, 44($sp)
+    lw $fp, 40($sp)
     jr $ra
-    addiu $sp, $sp, 24
+    addiu $sp, $sp, 48
 # FUNCTION END
     
 .data

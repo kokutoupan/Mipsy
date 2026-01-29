@@ -1,3 +1,4 @@
+/* foo */
 func foo(p){
     define z;
     define w;

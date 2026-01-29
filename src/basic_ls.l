@@ -6,6 +6,8 @@ Node *make_ident_node(char *str);
 
 %}
 
+%x COMMENT
+
 digit   [0-9]
 number  {digit}+
 alphabet [a-zA-Z]
@@ -13,6 +15,10 @@ alphanumeric ({digit}|{alphabet})
 string {alphanumeric}+
 
 %%
+"/*"            { BEGIN(COMMENT); }
+<COMMENT>"*/"   { BEGIN(INITIAL); }
+<COMMENT>(.|\n) { ; }
+
 =             {return ASSIGN;}
 ;             {return SEMIC;}
 ==              {return EQ;}
