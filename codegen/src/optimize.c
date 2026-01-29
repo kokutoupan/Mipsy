@@ -1033,20 +1033,28 @@ int optimize_jump_range(Code *start, Code *end) {
                   tgt_inst2->kind == CODE_INSN &&
                   tgt_inst2->insn.code == ASM_J) {
 
+                if (!(tgt_inst2->next->kind == CODE_INSN &&
+                      tgt_inst2->next->insn.code == ASM_NOP)) {
+                  cur = cur->next;
+                  continue;
+                }
+
                 // 自分の遅延スロットがNOPか確認
                 Code *my_delay = cur->next;
                 if (my_delay && my_delay != end &&
                     my_delay->kind == CODE_INSN &&
                     my_delay->insn.code == ASM_NOP) {
-
                   // コピーする命令が安全か確認 (分岐やSyscallでないこと)
                   AsmCode c = tgt_inst1->insn.code;
                   if (!is_control_flow(tgt_inst1)) {
+                    Code *cur_copy =
+                        new_code_j(ASM_J, tgt_inst2->insn.op1.label);
 
-                    // 1. 命令を自分の遅延スロットにコピー
-                    my_delay->insn = tgt_inst1->insn;
-                    // 2. 自分の飛び先を、さらに先のラベルに書き換え
-                    cur->insn.op1.label = tgt_inst2->insn.op1.label;
+                    cur->insn = tgt_inst1->insn;
+                    cur_copy->next = cur->next;
+                    cur->next = cur_copy;
+
+                    cur = cur_copy;
                     is_change = 1;
                   }
                 }

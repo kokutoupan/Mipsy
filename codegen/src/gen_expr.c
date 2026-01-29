@@ -51,8 +51,8 @@ int get_weight(Node *node) {
 Operand imm2reg(CodeList *out, Operand op, MipsReg reg) {
   if (op.type == OP_REG)
     return op; // 既にレジスタならそのまま
-  if (op.imm == 0)
-    return (Operand){OP_REG, R_ZERO};
+  // if (op.imm == 0)
+  //   return (Operand){OP_REG, R_ZERO};
   append_code(out, new_code_i(ASM_ADDI, reg, R_ZERO, op.imm));
   return (Operand){OP_REG, reg};
 }

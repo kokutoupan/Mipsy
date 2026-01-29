@@ -241,6 +241,7 @@ Code *new_code_i(AsmCode code, MipsReg rt, MipsReg rs, int imm) {
 
 Code *new_code_j(AsmCode code, const char *label) {
   Code *c = malloc(sizeof(Code));
+  c->kind = CODE_INSN;
   c->insn.code = code;
   c->insn.op1 = (Operand){OP_LABEL, .label = strdup(label)};
   c->next = NULL;
@@ -256,6 +257,7 @@ Code *new_code0(AsmCode code) {
 
 Code *new_code_branch(AsmCode code, MipsReg rs, MipsReg rt, const char *label) {
   Code *c = malloc(sizeof(Code));
+  c->kind = CODE_INSN;
   c->insn.code = code;
 
   c->insn.op1 = (Operand){OP_REG, .reg = rs};
