@@ -418,6 +418,8 @@ static int is_reg_read_in_range(Code *start, Code *end, MipsReg reg) {
     case ASM_SLTIU:
     case ASM_LW:
     case ASM_LB:
+    case ASM_MFLO:
+    case ASM_MFHI:
       // op1 が上書き対象
       if (insn->op1.type == OP_REG && insn->op1.reg == reg)
         return 0;
@@ -957,12 +959,14 @@ int optimize_dead_def(Code *start, Code *end) {
 }
 
 // ジャンプ最適化
-void optimize_jump_range(Code *start, Code *end) {
+int optimize_jump_range(Code *start, Code *end) {
   if (!start || !end)
-    return;
+    return 0;
 
+  int is_change = 0;
   Code *cur = start;
-  while (cur != NULL && start != end) {
+
+  while (cur != NULL && cur != end) {
     if (cur->kind == CODE_INSN && cur->insn.code == ASM_J) {
       char *target_label = cur->insn.op1.label;
 
@@ -977,17 +981,19 @@ void optimize_jump_range(Code *start, Code *end) {
       }
 
       if (target && target != end) {
-        // パターン1: 飛び先がすぐ後ろにあるか？
+        // パターン1: Fallthrough
         Code *scan = cur->next;
         int is_fallthrough = 0;
-        while (scan) {
+        while (scan && scan != end) {
           if (scan == target) {
             is_fallthrough = 1;
             break;
           }
           if (scan->kind == CODE_INSN && scan->insn.code != ASM_NOP) {
-            // 命令があるのでFallthroughではない
-            break;
+            break; // 間に命令があるのでFallthrough不可
+          }
+          if (scan->kind == CODE_LABEL) {
+            break; // 別のラベルが挟まっている場合も安全のため不可
           }
           scan = scan->next;
         }
@@ -995,26 +1001,138 @@ void optimize_jump_range(Code *start, Code *end) {
         if (is_fallthrough) {
           // ジャンプ不要なので削除 (NOP化)
           cur->insn.code = ASM_NOP;
+          is_change = 1;
         } else {
-          // パターン2: 飛び先の直後がさらにジャンプか？
-          Code *next_insn = target->next;
-          // ラベルやNOPをスキップして最初の命令を探す
-          while (next_insn && (next_insn->kind == CODE_LABEL ||
-                               (next_insn->kind == CODE_INSN &&
-                                next_insn->insn.code == ASM_NOP))) {
-            next_insn = next_insn->next;
+          // 飛び先の次の命令を取得（ラベルやNOPをスキップ）
+          Code *tgt_inst1 = target->next;
+          while (tgt_inst1 && tgt_inst1 != end &&
+                 (tgt_inst1->kind == CODE_LABEL ||
+                  (tgt_inst1->kind == CODE_INSN &&
+                   tgt_inst1->insn.code == ASM_NOP))) {
+            tgt_inst1 = tgt_inst1->next;
           }
 
-          if (next_insn && next_insn->kind == CODE_INSN &&
-              next_insn->insn.code == ASM_J) {
-            // 飛び先を書き換え
-            cur->insn.op1.label = next_insn->insn.op1.label;
+          if (tgt_inst1 && tgt_inst1 != end && tgt_inst1->kind == CODE_INSN) {
+
+            // パターン2: 飛び先がいきなりジャンプ (Label: j LabelB)
+            if (tgt_inst1->insn.code == ASM_J) {
+              cur->insn.op1.label = tgt_inst1->insn.op1.label;
+              is_change = 1;
+            }
+            // パターン3: 飛び先が「命令 + ジャンプ」 (Label: Inst; j LabelB)
+            else {
+              Code *tgt_inst2 = tgt_inst1->next;
+              // tgt_inst2 がジャンプ命令か確認
+              while (tgt_inst2 && tgt_inst2 != end &&
+                     tgt_inst2->kind == CODE_INSN &&
+                     tgt_inst2->insn.code == ASM_NOP) {
+                tgt_inst2 = tgt_inst2->next;
+              }
+
+              if (tgt_inst2 && tgt_inst2 != end &&
+                  tgt_inst2->kind == CODE_INSN &&
+                  tgt_inst2->insn.code == ASM_J) {
+
+                // 自分の遅延スロットがNOPか確認
+                Code *my_delay = cur->next;
+                if (my_delay && my_delay != end &&
+                    my_delay->kind == CODE_INSN &&
+                    my_delay->insn.code == ASM_NOP) {
+
+                  // コピーする命令が安全か確認 (分岐やSyscallでないこと)
+                  AsmCode c = tgt_inst1->insn.code;
+                  if (!is_control_flow(tgt_inst1)) {
+
+                    // 1. 命令を自分の遅延スロットにコピー
+                    my_delay->insn = tgt_inst1->insn;
+                    // 2. 自分の飛び先を、さらに先のラベルに書き換え
+                    cur->insn.op1.label = tgt_inst2->insn.op1.label;
+                    is_change = 1;
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
     cur = cur->next;
   }
+  return is_change;
+}
+
+// 分岐反転最適化 (if( __ ){break;}とか
+int optimize_branch_inversion(Code *start, Code *end) {
+  if (!start || !end)
+    return 0;
+
+  int changed = 0;
+  Code *cur = start;
+  while (cur && cur != end) {
+    if (cur->kind == CODE_INSN &&
+        (cur->insn.code == ASM_BEQ || cur->insn.code == ASM_BNE)) {
+
+      AsmInst *branch = &cur->insn;
+      char *skip_label = branch->op3.label; // BEQ/BNEの飛び先 (SkipLabel)
+
+      // 1. BranchのDelay Slot
+      Code *delay1 = cur->next;
+      if (delay1 && delay1 != end && delay1->kind == CODE_INSN) {
+
+        // 2. 直後が Jump 命令か？
+        Code *jump_node = delay1->next;
+        if (jump_node && jump_node != end && jump_node->kind == CODE_INSN &&
+            jump_node->insn.code == ASM_J) {
+
+          // 3. JumpのDelay Slot
+          Code *delay2 = jump_node->next;
+          if (delay2 && delay2 != end && delay2->kind == CODE_INSN &&
+              delay2->insn.code == ASM_NOP) {
+
+            // 4. Jumpの直後に SkipLabel があるか確認
+            // (Fallthrough先がSkipLabelか)
+            Code *scan = delay2->next;
+            int found = 0;
+
+            // 間のNOPや他のラベルをスキップして探す
+            while (scan && scan != end) {
+              if (scan->kind == CODE_LABEL) {
+                if (strcmp(scan->label.name, skip_label) == 0) {
+                  found = 1;
+                  break;
+                }
+                scan = scan->next;
+                continue;
+              }
+              if (scan->kind == CODE_INSN && scan->insn.code == ASM_NOP) {
+                scan = scan->next;
+                continue;
+              }
+              // それ以外の命令が来たら不一致
+              break;
+            }
+
+            if (found) {
+              // A. 分岐条件を反転 (BEQ <-> BNE)
+              if (branch->code == ASM_BEQ)
+                branch->code = ASM_BNE;
+              else
+                branch->code = ASM_BEQ;
+              // B. 分岐先をJumpのターゲットに変更
+              branch->op3.label = jump_node->insn.op1.label;
+
+              // C. Jump命令をNOP化
+              jump_node->insn.code = ASM_NOP;
+
+              changed = 1;
+            }
+          }
+        }
+      }
+    }
+    cur = cur->next;
+  }
+  return changed;
 }
 
 /* 関数単位ドライバ
@@ -1054,11 +1172,11 @@ void optimize_per_function(CodeList *list) {
           // 3. デッドコード削除
           changed |= optimize_dead_def(func_start, func_end);
 
+          changed |= optimize_jump_range(func_start, func_end);
+          changed |= optimize_branch_inversion(func_start, func_end);
+
           loop_count++;
         } while (changed && loop_count < 10); // 無限ループ防止で上限を設ける
-
-        // 一回
-        optimize_jump_range(func_start, func_end);
 
         cur = func_end;
       }

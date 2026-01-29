@@ -43,7 +43,6 @@ quicksort:
     addu $t0, $s0, $t1
     lw $s5, 0($t0)
     addiu $s3, $s1, -1
-    j loop_head2
     addu $s4, $s2, $zero
 loop_head2:
     j loop_cond4
@@ -62,9 +61,7 @@ loop_end6:
     j loop_cond7
     addiu $s4, $s4, -1
 loop_head8:
-    bne $s4, $s1, IF_END10
-    nop
-    j loop_end9
+    beq $s4, $s1, loop_end9
     nop
 IF_END10:
     addiu $s4, $s4, -1
@@ -78,9 +75,7 @@ loop_cond7:
     nop
 loop_end9:
     slt $t0, $s3, $s4
-    bne $t0, $zero, IF_END11
-    nop
-    j loop_end3
+    beq $t0, $zero, loop_end3
     nop
 IF_END11:
     sll $t1, $s3, 2
@@ -96,8 +91,8 @@ IF_END11:
     addu $t1, $s0, $t2
     sw $s6, 0($t1)
 loop_cond1:
-    j loop_head2
-    nop
+    j loop_cond4
+    addiu $s3, $s3, 1
 loop_end3:
     sll $t1, $s3, 2
     addu $t0, $s0, $t1
