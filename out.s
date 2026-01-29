@@ -43,7 +43,7 @@ quicksort:
     addu $t0, $s0, $t1
     lw $s5, 0($t0)
     addiu $s3, $s1, -1
-    j loop_cond1
+    j loop_head2
     addu $s4, $s2, $zero
 loop_head2:
     j loop_cond4

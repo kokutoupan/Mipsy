@@ -4,6 +4,7 @@
 #include "mips_reg.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* 分岐命令かどうか判定 */
 static int is_branch(AsmCode code) {
@@ -955,6 +956,67 @@ int optimize_dead_def(Code *start, Code *end) {
   return changed;
 }
 
+// ジャンプ最適化
+void optimize_jump_range(Code *start, Code *end) {
+  if (!start || !end)
+    return;
+
+  Code *cur = start;
+  while (cur != NULL && start != end) {
+    if (cur->kind == CODE_INSN && cur->insn.code == ASM_J) {
+      char *target_label = cur->insn.op1.label;
+
+      // 飛び先ラベルを探す
+      Code *target = start;
+      while (target && target != end) {
+        if (target->kind == CODE_LABEL &&
+            strcmp(target->label.name, target_label) == 0) {
+          break;
+        }
+        target = target->next;
+      }
+
+      if (target && target != end) {
+        // パターン1: 飛び先がすぐ後ろにあるか？
+        Code *scan = cur->next;
+        int is_fallthrough = 0;
+        while (scan) {
+          if (scan == target) {
+            is_fallthrough = 1;
+            break;
+          }
+          if (scan->kind == CODE_INSN && scan->insn.code != ASM_NOP) {
+            // 命令があるのでFallthroughではない
+            break;
+          }
+          scan = scan->next;
+        }
+
+        if (is_fallthrough) {
+          // ジャンプ不要なので削除 (NOP化)
+          cur->insn.code = ASM_NOP;
+        } else {
+          // パターン2: 飛び先の直後がさらにジャンプか？
+          Code *next_insn = target->next;
+          // ラベルやNOPをスキップして最初の命令を探す
+          while (next_insn && (next_insn->kind == CODE_LABEL ||
+                               (next_insn->kind == CODE_INSN &&
+                                next_insn->insn.code == ASM_NOP))) {
+            next_insn = next_insn->next;
+          }
+
+          if (next_insn && next_insn->kind == CODE_INSN &&
+              next_insn->insn.code == ASM_J) {
+            // 飛び先を書き換え
+            cur->insn.op1.label = next_insn->insn.op1.label;
+          }
+        }
+      }
+    }
+    cur = cur->next;
+  }
+}
+
 /* 関数単位ドライバ
  * リストから関数ブロックを切り出し、収束するまで最適化を回す
  */
@@ -994,6 +1056,9 @@ void optimize_per_function(CodeList *list) {
 
           loop_count++;
         } while (changed && loop_count < 10); // 無限ループ防止で上限を設ける
+
+        // 一回
+        optimize_jump_range(func_start, func_end);
 
         cur = func_end;
       }
