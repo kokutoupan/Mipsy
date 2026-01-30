@@ -1,0 +1,15 @@
+func fib(n) {
+  if (n <= 1) { 
+    return n; 
+  } 
+
+  // 式の途中で関数呼び出しが発生するため，左辺の結果を保持するレジスタの退避(Caller-Save)が必要
+  return funccall fib(n - 1) + funccall fib(n - 2); 
+}
+
+func main() { 
+  define result; 
+  reg n;
+  n = 10;
+  result = funccall fib(n);
+}

@@ -1,0 +1,17 @@
+func swap(a,b) { 
+  reg temp;
+  temp = a$; // ポインタ a の指す値(dereference)を取得 
+  a$ = b$;
+  b$ = temp;
+}
+
+func main() { 
+  define x, y; 
+  x = 100;
+  y = 200;
+
+  // 変数 x, y のアドレスを渡す 
+  funccall swap(@x, @y);
+
+  // x=200, y=100 となっている
+} 

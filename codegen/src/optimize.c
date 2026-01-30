@@ -441,6 +441,11 @@ static int is_reg_read_in_range(Code *start, Code *end, MipsReg reg) {
   // $t0-$t7 (Caller Saved) かどうか
   int is_stric = !(reg >= R_T0 && reg <= R_T7);
 
+  // FPとかは、だめ
+  if (reg == R_FP || reg == R_SP) {
+    return 1;
+  }
+
   for (Code *cur = start; cur != end && cur != NULL; cur = cur->next) {
 
     // エピローグの開始に到達したら、そこでスコープ終了とみなす（読まれない）
