@@ -1417,8 +1417,86 @@ int optimize_frame_pointer_omission(Code *func_start, Code *func_end) {
   return changed;
 }
 
-/* MFLO/MFHI の直後に Move がある場合、直接ターゲットに格納する
- */
+// $raの変更がない場合にsw/lwを消す
+int optimize_return_address_omission(Code *func_start, Code *func_end) {
+  if (!func_start || !func_end)
+    return 0;
+
+  Code *prologue_end = NULL;
+  Code *epilogue_start = NULL;
+
+  // 1. プロローグ・エピローグの境界を探す
+  for (Code *cur = func_start; cur != func_end; cur = cur->next) {
+    if (cur->kind == CODE_PROLOGUE_END)
+      prologue_end = cur;
+    if (cur->kind == CODE_EPILOGUE_START)
+      epilogue_start = cur;
+  }
+
+  if (!prologue_end || !epilogue_start)
+    return 0;
+
+  // 2. 関数本体で $ra が変更されているかチェック
+  for (Code *cur = prologue_end->next; cur && cur != epilogue_start;
+       cur = cur->next) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+
+      // 関数呼び出しがある -> $ra が上書きされるので最適化不可
+      if (insn->code == ASM_JAL || insn->code == ASM_JALR) {
+        return 0;
+      }
+
+      // その他、$ra への明示的な書き込みチェック
+      int is_write = 1;
+      if (insn->code == ASM_SW || insn->code == ASM_SB ||
+          insn->code == ASM_BEQ || insn->code == ASM_BNE ||
+          insn->code == ASM_JR || insn->code == ASM_J ||
+          insn->code == ASM_NOP || insn->code == ASM_SYSCALL) {
+        is_write = 0;
+      }
+
+      // もし $ra に書き込んでいたらNG (通常はないはずだが念のため)
+      if (is_write && insn->op1.type == OP_REG && insn->op1.reg == R_RA) {
+        return 0;
+      }
+    }
+  }
+
+  int changed = 0;
+
+  // 3. プロローグ・エピローグの $ra 操作を削除
+
+  // --- プロローグ側 ---
+  for (Code *cur = func_start; cur != prologue_end; cur = cur->next) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+      // sw $ra, offset($sp)
+      if (insn->code == ASM_SW && insn->op1.type == OP_REG &&
+          insn->op1.reg == R_RA) {
+        insn->code = ASM_NOP;
+        changed = 1;
+      }
+    }
+  }
+
+  // --- エピローグ側 ---
+  for (Code *cur = epilogue_start; cur != func_end; cur = cur->next) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+      // lw $ra, offset($sp)
+      if (insn->code == ASM_LW && insn->op1.type == OP_REG &&
+          insn->op1.reg == R_RA) {
+        insn->code = ASM_NOP;
+        changed = 1;
+      }
+    }
+  }
+
+  return changed;
+}
+
+// MFLO/MFHI の直後に Move がある場合、直接ターゲットに格納する
 int optimize_hilo_peephole(Code *start, Code *end) {
   int changed = 0;
   Code *cur = start;
@@ -1474,6 +1552,104 @@ int optimize_hilo_peephole(Code *start, Code *end) {
   return changed;
 }
 
+/* ゼロ伝播: $t0 = 0 の後、$t0 の代わりに $zero を使う
+ */
+int optimize_zero_propagation(Code *start, Code *end) {
+  int changed = 0;
+  Code *cur = start;
+  int WINDOW_SIZE = 64; // 探索範囲
+
+  while (cur != end && cur != NULL) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+      MipsReg dst = -1;
+      int is_zero = 0;
+
+      // 1. LI $reg, 0
+      if (insn->code == ASM_LI && insn->op3.imm == 0) {
+        is_zero = 1;
+        dst = insn->op1.reg;
+      }
+      // 2. ADDIU/ADDI $reg, $zero, 0
+      else if ((insn->code == ASM_ADDIU || insn->code == ASM_ADDI) &&
+               insn->op2.type == OP_REG && insn->op2.reg == R_ZERO &&
+               insn->op3.type == OP_IMM && insn->op3.imm == 0) {
+        is_zero = 1;
+        dst = insn->op1.reg;
+      }
+      // 3. ADDU/OR $reg, $zero, $zero (MOVE $reg, $zero)
+      else if ((insn->code == ASM_ADDU || insn->code == ASM_OR) &&
+               insn->op2.type == OP_REG && insn->op2.reg == R_ZERO &&
+               insn->op3.type == OP_REG && insn->op3.reg == R_ZERO) {
+        is_zero = 1;
+        dst = insn->op1.reg;
+      }
+      // 4. ORI $reg, $zero, 0
+      else if (insn->code == ASM_ORI && insn->op2.type == OP_REG &&
+               insn->op2.reg == R_ZERO && insn->op3.type == OP_IMM &&
+               insn->op3.imm == 0) {
+        is_zero = 1;
+        dst = insn->op1.reg;
+      }
+
+      // ゼロ代入が見つかった場合
+      if (is_zero && dst != R_ZERO) {
+        // 前方スキャンして dst を R_ZERO に置換
+        Code *scan = cur->next;
+        int dist = 0;
+
+        while (scan != end && scan != NULL && dist < WINDOW_SIZE) {
+          if (is_control_flow(scan))
+            break;
+
+          if (scan->kind == CODE_INSN) {
+            AsmInst *s_insn = &scan->insn;
+
+            // 再定義されたら終了
+            if (get_def_reg(s_insn) == dst)
+              break;
+
+            int replaced = 0;
+
+            // op1 (入力として使う場合: SW, BEQなど)
+            int op1_is_input = 0;
+            if (s_insn->code == ASM_SW || s_insn->code == ASM_SB ||
+                s_insn->code == ASM_BEQ || s_insn->code == ASM_BNE ||
+                s_insn->code == ASM_JR) {
+              op1_is_input = 1;
+            }
+
+            if (op1_is_input && s_insn->op1.type == OP_REG &&
+                s_insn->op1.reg == dst) {
+              s_insn->op1.reg = R_ZERO;
+              replaced = 1;
+            }
+
+            // op2 (常に入力)
+            if (s_insn->op2.type == OP_REG && s_insn->op2.reg == dst) {
+              s_insn->op2.reg = R_ZERO;
+              replaced = 1;
+            }
+
+            // op3 (レジスタなら入力)
+            if (s_insn->op3.type == OP_REG && s_insn->op3.reg == dst) {
+              s_insn->op3.reg = R_ZERO;
+              replaced = 1;
+            }
+
+            if (replaced)
+              changed = 1;
+          }
+          scan = scan->next;
+          dist++;
+        }
+      }
+    }
+    cur = cur->next;
+  }
+  return changed;
+}
+
 /* 関数単位ドライバ
  * リストから関数ブロックを切り出し、収束するまで最適化を回す
  */
@@ -1496,7 +1672,9 @@ void optimize_per_function(CodeList *list) {
         // --- 最適化ループ ---
         int changed;
         int loop_count = 0;
+
         optimize_frame_pointer_omission(func_start, func_end);
+        optimize_return_address_omission(func_start, func_end);
         do {
           changed = 0;
 
@@ -1515,6 +1693,7 @@ void optimize_per_function(CodeList *list) {
 
           changed |= optimize_address_range(func_start, func_end);
 
+          changed |= optimize_zero_propagation(func_start, func_end);
           // 3. デッドコード削除
           changed |= optimize_dead_def(func_start, func_end);
 
