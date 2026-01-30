@@ -37,47 +37,43 @@ quicksort:
     addu $s2, $a2, $zero
 # PROLOGUE END
     slt $t0, $s1, $s2
-    beq $t0, $zero, IF_END1
+    beq $t0, $zero, $IF_END1
     nop
     sll $t1, $s2, 2
     addu $t0, $s0, $t1
     lw $s5, 0($t0)
     addiu $s3, $s1, -1
     addu $s4, $s2, $zero
-loop_head3:
-    j loop_cond5
+    j $loop_cond5
     addiu $s3, $s3, 1
-loop_head6:
+$loop_head6:
     addiu $s3, $s3, 1
-loop_cond5:
+$loop_cond5:
     sll $t1, $s3, 2
     addu $t0, $s0, $t1
     lw $t0, 0($t0)
     nop
     slt $t0, $t0, $s5
-    bne $t0, $zero, loop_head6
+    bne $t0, $zero, $loop_head6
     nop
-loop_end7:
-    j loop_cond8
+    j $loop_cond8
     addiu $s4, $s4, -1
-loop_head9:
-    beq $s4, $s1, loop_end10
+$loop_head9:
+    beq $s4, $s1, $loop_end10
     nop
-IF_END11:
     addiu $s4, $s4, -1
-loop_cond8:
+$loop_cond8:
     sll $t1, $s4, 2
     addu $t0, $s0, $t1
     lw $t0, 0($t0)
     nop
     slt $t0, $s5, $t0
-    bne $t0, $zero, loop_head9
+    bne $t0, $zero, $loop_head9
     nop
-loop_end10:
+$loop_end10:
     slt $t0, $s3, $s4
-    beq $t0, $zero, loop_end4
+    beq $t0, $zero, $loop_end4
     nop
-IF_END12:
     sll $t1, $s3, 2
     addu $t0, $s0, $t1
     lw $s6, 0($t0)
@@ -90,10 +86,9 @@ IF_END12:
     sll $t2, $s4, 2
     addu $t1, $s0, $t2
     sw $s6, 0($t1)
-loop_cond2:
-    j loop_cond5
+    j $loop_cond5
     addiu $s3, $s3, 1
-loop_end4:
+$loop_end4:
     sll $t1, $s3, 2
     addu $t0, $s0, $t1
     lw $s6, 0($t0)
@@ -114,9 +109,8 @@ loop_end4:
     addiu $a1, $s3, 1
     jal quicksort
     addu $a2, $s2, $zero
-IF_END1:
+$IF_END1:
 # EPILOGUE START
-$func_ep0:
     ori $sp, $fp, 0
     lw $s0, 0($sp)
     lw $s1, 4($sp)
@@ -162,7 +156,6 @@ main:
     jal quicksort
     addi $a2, $zero, 9
 # EPILOGUE START
-$func_ep13:
     ori $sp, $fp, 0
     lw $ra, 44($sp)
     lw $fp, 40($sp)

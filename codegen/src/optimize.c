@@ -332,6 +332,77 @@ void optimize_nop(CodeList *list) {
   }
 }
 
+/* NOP最適化 */
+int optimize_nop_range(Code *start, Code *end) {
+  if (!start || !end)
+    return 0;
+
+  int is_change = 0;
+  Code *prev_node = NULL;      // リスト操作用の1つ前のノード
+  Code *last_insn_node = NULL; // 直近の「命令」ノード (ラベルはスキップ)
+  Code *cur = start;
+
+  while (cur != NULL && cur != end) {
+    int remove = 0;
+
+    // 現在のノードが NOP 命令かどうか
+    if (cur->kind == CODE_INSN && cur->insn.code == ASM_NOP) {
+      remove = 1;
+
+      if (last_insn_node != NULL) {
+        // 1. 直前が分岐命令なら、遅延スロットなので消さない
+        if (is_branch(last_insn_node->insn.code)) {
+          remove = 0;
+        }
+        // 2. 直前がロード命令なら、依存関係をチェック
+        else if (is_load(last_insn_node->insn.code)) {
+          // ロード先レジスタ (LW rt, ... なので op1 が dst)
+          MipsReg load_dst = last_insn_node->insn.op1.reg;
+
+          // 次の命令(ラベルはスキップ)
+          Code *next_insn = cur->next;
+          while (next_insn != NULL && next_insn->kind == CODE_LABEL) {
+            next_insn = next_insn->next;
+          }
+
+          if (next_insn != NULL && next_insn->kind == CODE_INSN) {
+            // 次の命令がロード先を使っているなら、NOPが必要
+            if (is_reg_used(&next_insn->insn, load_dst)) {
+              remove = 0;
+            }
+          }
+        }
+      } else {
+        // 直前の命令がない（関数の先頭など）なら、NOPは不要
+        remove = 1;
+      }
+    }
+
+    if (remove) {
+      // リストから削除
+      Code *next = cur->next;
+
+      if (prev_node) {
+        prev_node->next = next;
+      }
+
+      free(cur);
+      cur = next; // prev_node は更新しない
+      is_change = 1;
+    } else {
+      // 削除しない場合
+
+      if (cur->kind == CODE_INSN) {
+        last_insn_node = cur;
+      }
+
+      prev_node = cur;
+      cur = cur->next;
+    }
+  }
+  return is_change;
+}
+
 // 加算(ADDIU/ADDI/ADDU+zero)なら値を返す。それ以外ならフラグを下ろす
 static int get_add_imm(AsmInst *insn, int *is_valid) {
   if (insn->code == ASM_ADDIU || insn->code == ASM_ADDI) {
@@ -1144,6 +1215,89 @@ int optimize_branch_inversion(Code *start, Code *end) {
   return changed;
 }
 
+int optimize_unreachable(Code *start, Code *end) {
+  if (!start || !end) {
+    return 0;
+  }
+  int is_change = 0;
+
+  Code *cur = start;
+  int reach = 1;
+
+  while (cur && cur != end) {
+
+    if (!reach) {
+      if (cur->kind == CODE_LABEL) {
+        reach = 1;
+      } else if (cur->kind == CODE_INSN) {
+        // 到達しない
+        cur->insn.code = ASM_NOP;
+        is_change = 1;
+      }
+    }
+
+    if (cur->kind == CODE_INSN && cur->insn.code == ASM_J) {
+      reach = 0;
+      // jumpの次は除外
+      cur = cur->next;
+    }
+    cur = cur->next;
+  }
+
+  return is_change;
+}
+
+static int is_label_used(char **used_list, int count, char *target) {
+  for (int i = 0; i < count; ++i) {
+    if (strcmp(used_list[i], target) == 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int optimize_unused_label(Code *start, Code *end) {
+  if (!start || !end) {
+    return 0;
+  }
+  int is_change = 0;
+  char *used_labels[1024];
+  int used_count = 0;
+
+  // ラベルの登録
+  for (Code *cur = start; cur && cur != end; cur = cur->next) {
+    if (cur->kind != CODE_INSN && is_branch(cur->insn.code)) {
+      continue;
+    }
+    AsmInst *insn = &cur->insn;
+
+    // j
+    if (insn->op1.type == OP_LABEL) {
+      if (used_count < 1024) {
+        used_labels[used_count++] = insn->op1.label;
+      }
+    }
+
+    // bneとか
+    if (insn->op3.type == OP_LABEL) {
+      if (used_count < 1024) {
+        used_labels[used_count++] = insn->op3.label;
+      }
+    }
+  }
+
+  for (Code *cur = start; cur && cur != end; cur = cur->next) {
+    if (cur->kind == CODE_LABEL && cur->label.name[0] == '$' &&
+        !is_label_used(used_labels, used_count, cur->label.name)) {
+      cur->kind = CODE_INSN;
+      cur->insn.code = ASM_NOP;
+      is_change = 1;
+    }
+  }
+
+  return is_change;
+}
+
 /* 関数単位ドライバ
  * リストから関数ブロックを切り出し、収束するまで最適化を回す
  */
@@ -1168,6 +1322,11 @@ void optimize_per_function(CodeList *list) {
         int loop_count = 0;
         do {
           changed = 0;
+
+          changed |= optimize_unused_label(func_start, func_end);
+          changed |= optimize_unreachable(func_start, func_end);
+
+          changed |= optimize_nop_range(func_start, func_end);
 
           // 1. Move伝播 (Window探索)
           changed |= optimize_move_propagation(func_start, func_end);

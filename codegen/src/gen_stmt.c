@@ -94,8 +94,8 @@ void cond_eval(CodeList *out, Node *node, char *t_label, MipsReg reg,
 
 void gen_if(CodeList *out, Node *node) {
   if (node->id == ND_IF_ELSE) {
-    char *e_label = new_label_pref("IF_ELSE");
-    char *end_label = new_label_pref("IF_END");
+    char *e_label = new_label_pref("$IF_ELSE");
+    char *end_label = new_label_pref("$IF_END");
 
     // 偽なら Else へ
     cond_eval(out, node->node0, e_label, R_T0, 1);
@@ -113,7 +113,7 @@ void gen_if(CodeList *out, Node *node) {
 
   } else {
     // Elseなし
-    char *end_label = new_label_pref("IF_END");
+    char *end_label = new_label_pref("$IF_END");
 
     // 偽なら End へ
     cond_eval(out, node->node0, end_label, R_T0, 1);
@@ -136,9 +136,9 @@ void gen_break(CodeList *out, Node *node) {
 }
 
 void gen_while(CodeList *out, Node *node) {
-  char *loop_cond = new_label_pref("loop_cond");
-  char *loop_head = new_label_pref("loop_head");
-  char *loop_end = new_label_pref("loop_end"); //  脱出先ラベル
+  char *loop_cond = new_label_pref("$loop_cond");
+  char *loop_head = new_label_pref("$loop_head");
+  char *loop_end = new_label_pref("$loop_end"); //  脱出先ラベル
 
   // まず条件判定へジャンプ
   append_code(out, new_code_j(ASM_J, loop_cond));
