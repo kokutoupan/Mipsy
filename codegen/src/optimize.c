@@ -1289,6 +1289,7 @@ int optimize_unused_label(Code *start, Code *end) {
   for (Code *cur = start; cur && cur != end; cur = cur->next) {
     if (cur->kind == CODE_LABEL && cur->label.name[0] == '$' &&
         !is_label_used(used_labels, used_count, cur->label.name)) {
+      free(cur->label.name);
       cur->kind = CODE_INSN;
       cur->insn.code = ASM_NOP;
       is_change = 1;

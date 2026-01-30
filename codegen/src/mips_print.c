@@ -5,82 +5,35 @@
 
 void print_head(FILE *out) {
 
+  fprintf(out, "    INITIAL_GP = 0x10008000         # initial value of global "
+               "pointer\n");
+  fprintf(out, "    INITIAL_SP = 0x7ffffffc         # initial value of stack "
+               "pointer\n");
+  fprintf(out, "    # system call service number\n");
+  fprintf(out, "    stop_service = 99\n");
+  fprintf(out, "\n");
   fprintf(out,
-          "        INITIAL_GP = 0x10008000         # initial value of global "
-          "pointer\n");
+          "    .text                           # テキストセグメントの開始\n");
+  fprintf(out, "init:\n");
   fprintf(out,
-          "        INITIAL_SP = 0x7ffffffc         # initial value of stack "
-          "pointer   \n");
-  fprintf(
-      out,
-      "        # system call service number                                 "
-      "      \n");
-  fprintf(
-      out,
-      "        stop_service = 99                                            "
-      "     \n");
-  fprintf(
-      out,
-      "                                                                     "
-      "      \n");
-  fprintf(
-      out,
-      "        .text                           # テキストセグメントの開始   "
-      "      \n");
-  fprintf(
-      out,
-      "init:                                                                "
-      "      \n");
-  fprintf(
-      out,
-      "        # initialize $gp (global pointer) and $sp (stack pointer)    "
-      "      \n");
-  fprintf(out, "        la      $gp, INITIAL_GP         # $gp ← 0x10008000 "
-               "(INITIAL_GP)    \n");
-  fprintf(out, "        la      $sp, INITIAL_SP         # $sp ← 0x7ffffffc "
-               "(INITIAL_SP)    \n");
-  fprintf(
-      out,
-      "        jal     main                    # jump to `main'             "
-      "      \n");
-  fprintf(
-      out,
-      "        nop                             # (delay slot)               "
-      "      \n");
-  fprintf(
-      out,
-      "        li      $v0, stop_service       # $v0 ← 99 (stop_service)    "
-      "      \n");
-  fprintf(
-      out,
-      "        syscall                         # stop                       "
-      "      \n");
-  fprintf(
-      out,
-      "        nop                                                          "
-      "      \n");
-  fprintf(
-      out,
-      "        # not reach here                                             "
-      "      \n");
-  fprintf(
-      out,
-      "stop:                                           # if syscall return  "
-      "      \n");
-  fprintf(
-      out,
-      "        j       stop                    # infinite loop...           "
-      "      \n");
-  fprintf(
-      out,
-      "        nop                             # (delay slot)               "
-      "      \n");
-  fprintf(
-      out,
-      "                                                                     "
-      "      \n");
-  fprintf(out, "        .text   0x00001000              # "
-               "以降のコードを0x00001000から配置 \n");
+          "    # initialize $gp (global pointer) and $sp (stack pointer)\n");
+  fprintf(out, "    la      $gp, INITIAL_GP         # $gp ← 0x10008000 "
+               "(INITIAL_GP)\n");
+  fprintf(out, "    la      $sp, INITIAL_SP         # $sp ← 0x7ffffffc "
+               "(INITIAL_SP)\n");
+  fprintf(out, "    jal     main                    # jump to `main'\n");
+  fprintf(out, "    nop                             # (delay slot)\n");
+  fprintf(out,
+          "    li      $v0, stop_service       # $v0 ← 99 (stop_service)\n");
+  fprintf(out, "    syscall                         # stop\n");
+  fprintf(out, "    nop\n");
+  fprintf(out, "    # not reach here\n");
+  fprintf(out, "stop:                                   # if syscall return\n");
+  fprintf(out, "    j       stop                    # infinite loop...\n");
+  fprintf(out, "    nop                             # (delay slot)\n");
+  fprintf(out, "\n");
+  fprintf(out, "    .text   0x00001000              # "
+               "以降のコードを0x00001000から配置\n");
 }
 
 // ---- Operand 出力 ----
@@ -296,9 +249,6 @@ void print_code(FILE *fp, Code *code) {
   case CODE_FUNC_LEAVE:
     fprintf(fp, "# FUNCTION END\n");
     return;
-  }
-
-  if (code->kind == CODE_LABEL) {
   }
 }
 
