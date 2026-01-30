@@ -1417,6 +1417,63 @@ int optimize_frame_pointer_omission(Code *func_start, Code *func_end) {
   return changed;
 }
 
+/* MFLO/MFHI の直後に Move がある場合、直接ターゲットに格納する
+ */
+int optimize_hilo_peephole(Code *start, Code *end) {
+  int changed = 0;
+  Code *cur = start;
+
+  while (cur != end && cur != NULL) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+
+      // 1. 対象命令: MFLO, MFHI
+      if (insn->code == ASM_MFLO || insn->code == ASM_MFHI) {
+        MipsReg tmp_reg = insn->op1.reg; // $t0
+
+        // 2. 次の命令を探す
+        Code *next = cur->next;
+        while (next && next != end && next->kind == CODE_INSN &&
+               next->insn.code == ASM_NOP) {
+          next = next->next;
+        }
+
+        if (next && next != end && next->kind == CODE_INSN) {
+          AsmInst *n_insn = &next->insn;
+
+          // 3. 次が Move 命令 (ADDU rd, rs, $zero) か？
+          int is_move = 0;
+          MipsReg dst_reg = -1;
+          MipsReg src_reg = -1;
+
+          if (n_insn->code == ASM_ADDU && n_insn->op3.reg == R_ZERO) {
+            dst_reg = n_insn->op1.reg; // $t1
+            src_reg = n_insn->op2.reg; // $t0
+            is_move = 1;
+          } else if (n_insn->code == ASM_OR && n_insn->op3.reg == R_ZERO) {
+            dst_reg = n_insn->op1.reg;
+            src_reg = n_insn->op2.reg;
+            is_move = 1;
+          }
+
+          if (is_move && src_reg == tmp_reg) {
+            if (!is_reg_read_in_range(next->next, end, tmp_reg)) {
+
+              insn->op1.reg = dst_reg;
+
+              n_insn->code = ASM_NOP;
+
+              changed = 1;
+            }
+          }
+        }
+      }
+    }
+    cur = cur->next;
+  }
+  return changed;
+}
+
 /* 関数単位ドライバ
  * リストから関数ブロックを切り出し、収束するまで最適化を回す
  */
@@ -1451,6 +1508,7 @@ void optimize_per_function(CodeList *list) {
           // 1. Move伝播 (Window探索)
           changed |= optimize_move_propagation(func_start, func_end);
 
+          changed |= optimize_hilo_peephole(func_start, func_end);
           changed |= optimize_load_move_range(func_start, func_end);
           // 2. 定数・アドレス計算の畳み込み
           changed |= optimize_addiu_chain_range(func_start, func_end);
