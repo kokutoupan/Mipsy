@@ -1304,6 +1304,119 @@ int optimize_unused_label(Code *start, Code *end) {
   return is_change;
 }
 
+/* フレームポインタ省略最適化
+ * 関数内で $sp が変更されない場合、$fp を $sp に置換し、
+ * プロローグ/エピローグの $fp 保存/復帰処理を削除する。
+ */
+int optimize_frame_pointer_omission(Code *func_start, Code *func_end) {
+  if (!func_start || !func_end)
+    return 0;
+
+  Code *prologue_end = NULL;
+  Code *epilogue_start = NULL;
+
+  // 1. プロローグ・エピローグの境界を探す
+  for (Code *cur = func_start; cur != func_end; cur = cur->next) {
+    if (cur->kind == CODE_PROLOGUE_END)
+      prologue_end = cur;
+    if (cur->kind == CODE_EPILOGUE_START)
+      epilogue_start = cur;
+  }
+
+  if (!prologue_end || !epilogue_start)
+    return 0;
+
+  // 2. 関数本体で $sp が変更されているかチェック
+  for (Code *cur = prologue_end->next; cur && cur != epilogue_start;
+       cur = cur->next) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+
+      // $sp への書き込みがあるかチェック
+      int is_write = 1;
+      // 書き込みを行わない命令（判定用）
+      if (insn->code == ASM_SW || insn->code == ASM_SB ||
+          insn->code == ASM_BEQ || insn->code == ASM_BNE ||
+          insn->code == ASM_JR || insn->code == ASM_J ||
+          insn->code == ASM_NOP || insn->code == ASM_SYSCALL) {
+        is_write = 0;
+      } else if (insn->code == ASM_JAL || insn->code == ASM_JALR) {
+        // JAL系は $ra 等を壊すが $sp は壊さない
+        is_write = 0;
+      }
+
+      if (is_write && insn->op1.type == OP_REG && insn->op1.reg == R_SP) {
+        // 本体で $sp が変更されている -> オフセットが狂うので最適化不可
+        return 0;
+      }
+    }
+  }
+
+  int changed = 0;
+
+  // 3. 全命令の $fp を $sp に置換
+  for (Code *cur = func_start; cur != func_end; cur = cur->next) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+      if (insn->op1.type == OP_REG && insn->op1.reg == R_FP)
+        insn->op1.reg = R_SP;
+      if (insn->op2.type == OP_REG && insn->op2.reg == R_FP)
+        insn->op2.reg = R_SP;
+      if (insn->op3.type == OP_REG && insn->op3.reg == R_FP)
+        insn->op3.reg = R_SP;
+    }
+  }
+
+  // 4. プロローグ・エピローグの不要命令削除
+
+  // --- プロローグ側 ---
+  for (Code *cur = func_start; cur != prologue_end; cur = cur->next) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+
+      // (元 sw $fp, ...) -> sw $sp, offset($sp) になっている
+      // 保存命令
+      if (insn->code == ASM_SW && insn->op1.type == OP_REG &&
+          insn->op1.reg == R_SP) {
+        insn->code = ASM_NOP;
+        changed = 1;
+      }
+
+      // (元 ori $fp, $sp, 0) -> ori $sp, $sp, 0 になっている
+      if (insn->code == ASM_ORI && insn->op1.type == OP_REG &&
+          insn->op1.reg == R_SP && insn->op2.type == OP_REG &&
+          insn->op2.reg == R_SP && insn->op3.imm == 0) {
+        insn->code = ASM_NOP;
+        changed = 1;
+      }
+    }
+  }
+
+  // --- エピローグ側 ---
+  for (Code *cur = epilogue_start; cur != func_end; cur = cur->next) {
+    if (cur->kind == CODE_INSN) {
+      AsmInst *insn = &cur->insn;
+
+      // (元 ori $sp, $fp, 0) -> ori $sp, $sp, 0 になっている
+      if (insn->code == ASM_ORI && insn->op1.type == OP_REG &&
+          insn->op1.reg == R_SP && insn->op2.type == OP_REG &&
+          insn->op2.reg == R_SP && insn->op3.imm == 0) {
+        insn->code = ASM_NOP;
+        changed = 1;
+      }
+
+      // (元 lw $fp, ...) -> lw $sp, offset($sp) になっている
+      if (insn->code == ASM_LW && insn->op1.type == OP_REG &&
+          insn->op1.reg == R_SP) {
+        insn->code = ASM_NOP;
+        changed = 1;
+      }
+    }
+  }
+
+  return changed;
+}
+
 /* 関数単位ドライバ
  * リストから関数ブロックを切り出し、収束するまで最適化を回す
  */
@@ -1326,6 +1439,7 @@ void optimize_per_function(CodeList *list) {
         // --- 最適化ループ ---
         int changed;
         int loop_count = 0;
+        optimize_frame_pointer_omission(func_start, func_end);
         do {
           changed = 0;
 

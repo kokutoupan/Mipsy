@@ -198,16 +198,16 @@ void func_bottom_code(CodeList *out, int size, int n_regs) {
   // $sp <- $fp (スタックポインタを戻す)
   append_code(out, new_code_i(ASM_ORI, R_SP, R_FP, 0));
 
-  // $s レジスタの復帰
-  for (int i = 0; i < n_regs; i++) {
-    append_code(out, new_code_i(ASM_LW, R_S0 + i, R_SP, size + (i * 4)));
-  }
-
   // $raの復元
   append_code(out, new_code_i(ASM_LW, R_RA, R_SP, size + save_area_size - 4));
 
   // $fpの復元
   append_code(out, new_code_i(ASM_LW, R_FP, R_SP, size + save_area_size - 8));
+
+  // $s レジスタの復帰 (raのために後回し)
+  for (int i = 0; i < n_regs; i++) {
+    append_code(out, new_code_i(ASM_LW, R_S0 + i, R_SP, size + (i * 4)));
+  }
 
   // スタック領域の解放
   append_code(out, new_code_i(ASM_ADDIU, R_SP, R_SP, frame_size));
@@ -219,6 +219,7 @@ void func_bottom_code(CodeList *out, int size, int n_regs) {
   c->insn.code = ASM_JR;
   c->insn.op1 = (Operand){OP_REG, .reg = R_RA};
   c->next = NULL;
+
   append_code(out, c);
 
   append_code(out, new_code0(ASM_NOP)); // 遅延スロット
