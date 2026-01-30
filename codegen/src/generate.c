@@ -348,7 +348,8 @@ CodeList *generate_code(Node *node) {
 
   if (node->node0 != NULL) {
 
-    fprintf(stderr, "use global data\n");
+    if (opt_debug)
+      fprintf(stderr, "use global data\n");
     gen_global_vars(node->node0, &global_data);
 
     if (opt_debug)
