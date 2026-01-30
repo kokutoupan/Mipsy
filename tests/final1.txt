@@ -1,5 +1,5 @@
 func main(){
-define i;
+reg i;
 define sum;
 sum = 0;
 i = 1;
