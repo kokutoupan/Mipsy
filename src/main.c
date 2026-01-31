@@ -85,6 +85,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Error!\n");
     return 1;
   }
+  fclose(fp);
+
   // ASTの表示
   if (opt_show_ast) {
     printf("--- Abstract Syntax Tree ---\n");
