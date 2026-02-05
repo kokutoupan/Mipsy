@@ -9,9 +9,24 @@ C言語ライクな独自言語をMIPSアセンブリにコンパイルする学
 * **Pointers & Arrays**: ポインタ演算、多次元配列へのアクセス
 * **Bitwise Operations**: シフト、AND/OR/XORなどのビット演算に対応
 * **Optimizations**:
-
-  * Dead code elimination (一部)
-  * Register allocation optimizations
+  * **Register Allocation**:
+    * Sethi-Ullman algorithm (Weighted register allocation)
+  * **Control Flow**:
+    * Branch chaining & Jump threading
+    * Branch inversion
+    * Unreachable code elimination
+    * Unused label deletion
+  * **Peephole & Data Flow**:
+    * Delay slot filling
+    * NOP removal
+    * Constant folding & propagation (ADDIU chain)
+    * Zero / Move propagation
+    * Address calculation folding (ADDIU+LW -> LW offset)
+    * Dead code elimination
+  * **Function Call**:
+    * Frame pointer omission (FPO)
+    * Leaf function optimization (Return address omission)
+    * Iterative optimization (applying passes until convergence)
 
 ## Language Specification (言語仕様)
 
@@ -38,8 +53,9 @@ cmake --build build
 **Options:**
 
 * `-o <file>` : Output file name (Default: `out.s`)
-* `-O0,-O1,...`        : Enable optimization(default on)
+* `-O0,-O1,...`        : Enable optimization(Default: -O1)
 * `-a`        : Show Abstract Syntax Tree (AST)
+* `-j`        : Show AST as JSON
 * `-d`        : Show debug info
 * `-h`        : Show help
 
