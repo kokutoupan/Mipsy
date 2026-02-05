@@ -14,6 +14,18 @@ const char *get_arith_op_str(int op) {
     return "*";
   case OP_DIV:
     return "/";
+  case OP_MOD:
+    return "%";
+  case OP_AND:
+    return "&";
+  case OP_OR:
+    return "|";
+  case OP_XOR:
+    return "^";
+  case OP_LSHIFT:
+    return "<<";
+  case OP_RSHIFT:
+    return ">>";
   default:
     return "???";
   }
@@ -31,6 +43,8 @@ const char *get_comp_op_str(int op) {
     return "<=";
   case OP_GEQ:
     return ">=";
+  case OP_NEQ:
+    return "!=";
   default:
     return "???";
   }
@@ -53,25 +67,41 @@ void print_ast(Node *node, int depth) {
   case ND_IDENT:
     printf("IDENT: %s\n", node->str);
     break;
+
+  case ND_NUM:
+    printf("NUM: %d\n", node->extra);
+    break;
+
   case ND_DEF:
-    printf("DEF:\n");
+    printf("DEF (define):\n");
+    print_ast(node->node0, depth + 1);
+    break;
+
+  case ND_REG_DEF:
+    printf("DEF (reg):\n");
     print_ast(node->node0, depth + 1);
     break;
 
   case ND_DEFARRAY:
-    printf("ARRAY_DEF:\n");
-    print_ast(node->node0, depth + 1);
-    print_ast(node->node1, depth + 1);
-    break;
-
-  case ND_NUM:
-    printf("VAR: %d\n", node->extra);
+    printf("DEFARRAY:\n");
+    print_ast(node->node0, depth + 1); // 名前
+    print_ast(node->node1, depth + 1); // サイズ/次元
     break;
 
   case ND_REF:
-    printf("REF:\n");
+    printf("ARRAY_REF ([]):\n");
+    print_ast(node->node0, depth + 1); // ベース
+    print_ast(node->node1, depth + 1); // インデックス
+    break;
+
+  case ND_ADDR:
+    printf("ADDR_OF (@)\n");
     print_ast(node->node0, depth + 1);
-    print_ast(node->node1, depth + 1);
+    break;
+
+  case ND_DEREF:
+    printf("DEREF ($)\n");
+    print_ast(node->node0, depth + 1);
     break;
 
   case ND_ASSIGN:
@@ -96,18 +126,16 @@ void print_ast(Node *node, int depth) {
     printf("IF\n");
     print_ast(node->node0, depth + 1); // 条件
     shift_view(depth);
-    printf("(THEN)\n"); // 見やすくするためのラベル（手動インデント）
-    print_ast(node->node1, depth + 1); // ブロック
+    printf("(THEN)\n");
+    print_ast(node->node1, depth + 1); // THENブロック
     break;
 
   case ND_IF_ELSE:
     printf("IF-ELSE\n");
     print_ast(node->node0, depth + 1); // 条件
-
     shift_view(depth);
     printf("(THEN)\n");
-    print_ast(node->node1, depth + 1); // IFブロック
-
+    print_ast(node->node1, depth + 1); // THENブロック
     shift_view(depth);
     printf("(ELSE)\n");
     print_ast(node->node2, depth + 1); // ELSEブロック
@@ -116,28 +144,54 @@ void print_ast(Node *node, int depth) {
   case ND_WHILE:
     printf("WHILE\n");
     print_ast(node->node0, depth + 1); // 条件
-    print_ast(node->node1, depth + 1); // ループ本体
+    print_ast(node->node1, depth + 1); // 本体
     break;
 
-  case ND_BLOCK:
-    printf("BLOCK\n");
-    print_ast(node->node0, depth + 1);
-    print_ast(node->node1, depth + 1);
+  case ND_BREAK:
+    printf("BREAK\n");
     break;
 
-  case ND_DECLS:
-    printf("DECLARATIONS\n");
-    print_ast(node->node0, depth + 1);
-    print_ast(node->node1, depth + 1);
+  case ND_RETURN:
+    printf("RETURN\n");
+    print_ast(node->node0, depth + 1); // 戻り値
     break;
-  case ND_LIST:
-    printf("LISTNODE\n");
+
+  case ND_FUNC_CALL:
+    printf("CALL: %s\n", node->str);
+    print_ast(node->node0, depth + 1); // 引数(ND_ARGS or Single Node)
+    break;
+
+  case ND_ARGS:
+    printf("ARGS\n");
     print_ast(node->node0, depth + 1);
     print_ast(node->node1, depth + 1);
     break;
 
   case ND_FUNC:
-    printf("FUNCNODE\n");
+    printf("FUNC: %s\n", node->str ? node->str : "(no name)");
+    shift_view(depth);
+    printf("(PARAMS)\n");
+    print_ast(node->node2, depth + 1); // 引数定義
+    shift_view(depth);
+    printf("(LOCALS)\n");
+    print_ast(node->node0, depth + 1); // ローカル変数
+    shift_view(depth);
+    printf("(BODY)\n");
+    print_ast(node->node1, depth + 1); // 本体
+    break;
+
+  // リスト構造系 (再帰的に表示)
+  case ND_BLOCK:
+  case ND_DECLS:
+  case ND_LIST:
+    // リストの種類を表示
+    if (node->id == ND_BLOCK)
+      printf("BLOCK\n");
+    else if (node->id == ND_DECLS)
+      printf("DECLS\n");
+    else
+      printf("LIST\n");
+
     print_ast(node->node0, depth + 1);
     print_ast(node->node1, depth + 1);
     break;
@@ -148,7 +202,7 @@ void print_ast(Node *node, int depth) {
   }
 }
 
-// 再帰的にASTを表示する関数
+// JSON形式でASTを表示する関数
 void print_ast_json(Node *node, int depth) {
   shift_view(depth);
 
@@ -173,7 +227,7 @@ void print_ast_json(Node *node, int depth) {
   case ND_NUM:
     printf("NUM\",\n");
     shift_view(depth + 1);
-    printf("\"value\": \"%s\"\n", node->str);
+    printf("\"value\": %d\n", node->extra);
     break;
 
   case ND_DEF:
@@ -186,25 +240,55 @@ void print_ast_json(Node *node, int depth) {
     printf("]\n");
     break;
 
+  case ND_REG_DEF:
+    printf("REG_DEF\",\n");
+    shift_view(depth + 1);
+    printf("\"children\": [\n");
+    print_ast_json(node->node0, depth + 2);
+    printf("\n");
+    shift_view(depth + 1);
+    printf("]\n");
+    break;
+
   case ND_DEFARRAY:
     printf("DEFARRAY\",\n");
     shift_view(depth + 1);
     printf("\"children\": [\n");
-    print_ast_json(node->node0, depth + 2);
+    print_ast_json(node->node0, depth + 2); // Name
     printf(",\n");
-    print_ast_json(node->node1, depth + 2);
+    print_ast_json(node->node1, depth + 2); // Size/Dims
     printf("\n");
     shift_view(depth + 1);
     printf("]\n");
     break;
 
   case ND_REF:
-    printf("REF\",\n");
+    printf("ARRAY_REF\",\n");
+    shift_view(depth + 1);
+    printf("\"children\": [\n");
+    print_ast_json(node->node0, depth + 2); // Base
+    printf(",\n");
+    print_ast_json(node->node1, depth + 2); // Index
+    printf("\n");
+    shift_view(depth + 1);
+    printf("]\n");
+    break;
+
+  case ND_ADDR:
+    printf("ADDR_OF\",\n");
     shift_view(depth + 1);
     printf("\"children\": [\n");
     print_ast_json(node->node0, depth + 2);
-    printf(",\n");
-    print_ast_json(node->node1, depth + 2);
+    printf("\n");
+    shift_view(depth + 1);
+    printf("]\n");
+    break;
+
+  case ND_DEREF:
+    printf("DEREF\",\n");
+    shift_view(depth + 1);
+    printf("\"children\": [\n");
+    print_ast_json(node->node0, depth + 2);
     printf("\n");
     shift_view(depth + 1);
     printf("]\n");
@@ -254,9 +338,9 @@ void print_ast_json(Node *node, int depth) {
     printf("IF\",\n");
     shift_view(depth + 1);
     printf("\"children\": [\n");
-    print_ast_json(node->node0, depth + 2); // 条件
+    print_ast_json(node->node0, depth + 2); // Cond
     printf(",\n");
-    print_ast_json(node->node1, depth + 2); // THEN ブロック
+    print_ast_json(node->node1, depth + 2); // Then
     printf("\n");
     shift_view(depth + 1);
     printf("]\n");
@@ -266,11 +350,11 @@ void print_ast_json(Node *node, int depth) {
     printf("IF_ELSE\",\n");
     shift_view(depth + 1);
     printf("\"children\": [\n");
-    print_ast_json(node->node0, depth + 2); // 条件
+    print_ast_json(node->node0, depth + 2); // Cond
     printf(",\n");
-    print_ast_json(node->node1, depth + 2); // THEN
+    print_ast_json(node->node1, depth + 2); // Then
     printf(",\n");
-    print_ast_json(node->node2, depth + 2); // ELSE
+    print_ast_json(node->node2, depth + 2); // Else
     printf("\n");
     shift_view(depth + 1);
     printf("]\n");
@@ -280,23 +364,73 @@ void print_ast_json(Node *node, int depth) {
     printf("WHILE\",\n");
     shift_view(depth + 1);
     printf("\"children\": [\n");
-    print_ast_json(node->node0, depth + 2); // 条件
+    print_ast_json(node->node0, depth + 2); // Cond
     printf(",\n");
-    print_ast_json(node->node1, depth + 2); // 本体
+    print_ast_json(node->node1, depth + 2); // Body
     printf("\n");
     shift_view(depth + 1);
     printf("]\n");
     break;
 
+  case ND_BREAK:
+    printf("BREAK\"\n");
+    // No children
+    break;
+
+  case ND_RETURN:
+    printf("RETURN\",\n");
+    shift_view(depth + 1);
+    printf("\"children\": [\n");
+    print_ast_json(node->node0, depth + 2);
+    printf("\n");
+    shift_view(depth + 1);
+    printf("]\n");
+    break;
+
+  case ND_FUNC_CALL:
+    printf("CALL\",\n");
+    shift_view(depth + 1);
+    printf("\"name\": \"%s\",\n", node->str);
+    shift_view(depth + 1);
+    printf("\"children\": [\n");
+    print_ast_json(node->node0, depth + 2); // Args
+    printf("\n");
+    shift_view(depth + 1);
+    printf("]\n");
+    break;
+
+  case ND_FUNC:
+    printf("FUNC\",\n");
+    shift_view(depth + 1);
+    printf("\"name\": \"%s\",\n", node->str ? node->str : "(no name)");
+    shift_view(depth + 1);
+    printf("\"params\": \n");
+    print_ast_json(node->node2, depth + 2);
+    printf(",\n");
+    shift_view(depth + 1);
+    printf("\"locals\": \n");
+    print_ast_json(node->node0, depth + 2);
+    printf(",\n");
+    shift_view(depth + 1);
+    printf("\"body\": \n");
+    print_ast_json(node->node1, depth + 2);
+    printf("\n");
+    break;
+
   case ND_BLOCK:
   case ND_DECLS:
   case ND_LIST:
-  case ND_FUNC:
-    // すべて node0, node1 をリストとして扱う
-    printf("%s\",\n", (node->id == ND_BLOCK)   ? "BLOCK"
-                      : (node->id == ND_DECLS) ? "DECLS"
-                      : (node->id == ND_FUNC)  ? "FUNC"
-                                               : "LIST");
+  case ND_ARGS:
+    // リスト構造
+    if (node->id == ND_BLOCK)
+      printf("BLOCK\",\n");
+    else if (node->id == ND_DECLS)
+      printf("DECLS\",\n");
+    else if (node->id == ND_ARGS)
+      printf("ARGS\",\n");
+    else
+      printf("LIST\",\n");
+
     shift_view(depth + 1);
     printf("\"children\": [\n");
     print_ast_json(node->node0, depth + 2);
@@ -310,7 +444,7 @@ void print_ast_json(Node *node, int depth) {
   default:
     printf("UNKNOWN\",\n");
     shift_view(depth + 1);
-    printf("\"value\": %d\n", node->id);
+    printf("\"id\": %d\n", node->id);
     break;
   }
 

@@ -17,6 +17,7 @@ extern Node *top;
 extern CodeList codeList;
 
 int opt_show_ast = 0;
+int opt_show_json = 0;
 int opt_optimize = 1;
 int opt_debug = 0;
 const char *out_file = "out.s";
@@ -25,21 +26,25 @@ void usage(const char *prog) {
   fprintf(stderr,
           "Usage: %s [options] input\n"
           "Options:\n"
-          "  -a        show AST\n"
-          "  -O        enable optimization\n"
-          "  -o file   output file\n"
-          "  -h        show this help\n"
-          "  -d        show debug info\n",
+          "  -a            show AST\n"
+          "  -j            show AST as JSON\n"
+          "  -O0,-O1,-O2   enable optimization\n"
+          "  -o file       output file\n"
+          "  -h            show this help\n"
+          "  -d            show debug info\n",
           prog);
 }
 
 int main(int argc, char *argv[]) {
 
   int opt;
-  while ((opt = getopt(argc, argv, "aO::o:hd")) != -1) {
+  while ((opt = getopt(argc, argv, "ajO::o:hd")) != -1) {
     switch (opt) {
     case 'a':
       opt_show_ast = 1;
+      break;
+    case 'j':
+      opt_show_json = 1;
       break;
     case 'O':
       if (optarg) {
@@ -91,9 +96,12 @@ int main(int argc, char *argv[]) {
   if (opt_show_ast) {
     printf("--- Abstract Syntax Tree ---\n");
     print_ast(top, 0);
-    // print_ast_json(top,0);
 
     printf("\n----------------------------\n");
+  }
+
+  if (opt_show_json) {
+    print_ast_json(top, 0);
   }
 
   // コード生成 (list形式)

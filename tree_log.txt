@@ -1,0 +1,999 @@
+{
+  "type": "LIST",
+  "children": [
+    null,
+    {
+      "type": "LIST",
+      "children": [
+        {
+          "type": "FUNC",
+          "name": "quicksort",
+          "params": 
+            {
+              "type": "LIST",
+              "children": [
+                {
+                  "type": "IDENT",
+                  "value": "a"
+                },
+                {
+                  "type": "LIST",
+                  "children": [
+                    {
+                      "type": "IDENT",
+                      "value": "l"
+                    },
+                    {
+                      "type": "IDENT",
+                      "value": "r"
+                    }
+                  ]
+                }
+              ]
+            },
+          "locals": 
+            {
+              "type": "DECLS",
+              "children": [
+                {
+                  "type": "REG_DEF",
+                  "children": [
+                    {
+                      "type": "LIST",
+                      "children": [
+                        {
+                          "type": "IDENT",
+                          "value": "i"
+                        },
+                        {
+                          "type": "IDENT",
+                          "value": "j"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "REG_DEF",
+                  "children": [
+                    {
+                      "type": "LIST",
+                      "children": [
+                        {
+                          "type": "IDENT",
+                          "value": "v"
+                        },
+                        {
+                          "type": "IDENT",
+                          "value": "t"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+          "body": 
+            {
+              "type": "IF",
+              "children": [
+                {
+                  "type": "COMP",
+                  "op": ">",
+                  "children": [
+                    {
+                      "type": "IDENT",
+                      "value": "r"
+                    },
+                    {
+                      "type": "IDENT",
+                      "value": "l"
+                    }
+                  ]
+                },
+                {
+                  "type": "BLOCK",
+                  "children": [
+                    {
+                      "type": "ASSIGN",
+                      "children": [
+                        {
+                          "type": "IDENT",
+                          "value": "v"
+                        },
+                        {
+                          "type": "ARRAY_REF",
+                          "children": [
+                            {
+                              "type": "IDENT",
+                              "value": "a"
+                            },
+                            {
+                              "type": "IDENT",
+                              "value": "r"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "BLOCK",
+                      "children": [
+                        {
+                          "type": "ASSIGN",
+                          "children": [
+                            {
+                              "type": "IDENT",
+                              "value": "i"
+                            },
+                            {
+                              "type": "ARITH",
+                              "op": "-",
+                              "children": [
+                                {
+                                  "type": "IDENT",
+                                  "value": "l"
+                                },
+                                {
+                                  "type": "NUM",
+                                  "value": 1
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BLOCK",
+                          "children": [
+                            {
+                              "type": "ASSIGN",
+                              "children": [
+                                {
+                                  "type": "IDENT",
+                                  "value": "j"
+                                },
+                                {
+                                  "type": "IDENT",
+                                  "value": "r"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "BLOCK",
+                              "children": [
+                                {
+                                  "type": "WHILE",
+                                  "children": [
+                                    {
+                                      "type": "COMP",
+                                      "op": "==",
+                                      "children": [
+                                        {
+                                          "type": "NUM",
+                                          "value": 1
+                                        },
+                                        {
+                                          "type": "NUM",
+                                          "value": 1
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "BLOCK",
+                                      "children": [
+                                        {
+                                          "type": "ASSIGN",
+                                          "children": [
+                                            {
+                                              "type": "IDENT",
+                                              "value": "i"
+                                            },
+                                            {
+                                              "type": "ARITH",
+                                              "op": "+",
+                                              "children": [
+                                                {
+                                                  "type": "IDENT",
+                                                  "value": "i"
+                                                },
+                                                {
+                                                  "type": "NUM",
+                                                  "value": 1
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "BLOCK",
+                                          "children": [
+                                            {
+                                              "type": "WHILE",
+                                              "children": [
+                                                {
+                                                  "type": "COMP",
+                                                  "op": "<",
+                                                  "children": [
+                                                    {
+                                                      "type": "ARRAY_REF",
+                                                      "children": [
+                                                        {
+                                                          "type": "IDENT",
+                                                          "value": "a"
+                                                        },
+                                                        {
+                                                          "type": "IDENT",
+                                                          "value": "i"
+                                                        }
+                                                      ]
+                                                    },
+                                                    {
+                                                      "type": "IDENT",
+                                                      "value": "v"
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "ASSIGN",
+                                                  "children": [
+                                                    {
+                                                      "type": "IDENT",
+                                                      "value": "i"
+                                                    },
+                                                    {
+                                                      "type": "ARITH",
+                                                      "op": "+",
+                                                      "children": [
+                                                        {
+                                                          "type": "IDENT",
+                                                          "value": "i"
+                                                        },
+                                                        {
+                                                          "type": "NUM",
+                                                          "value": 1
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "BLOCK",
+                                              "children": [
+                                                {
+                                                  "type": "ASSIGN",
+                                                  "children": [
+                                                    {
+                                                      "type": "IDENT",
+                                                      "value": "j"
+                                                    },
+                                                    {
+                                                      "type": "ARITH",
+                                                      "op": "-",
+                                                      "children": [
+                                                        {
+                                                          "type": "IDENT",
+                                                          "value": "j"
+                                                        },
+                                                        {
+                                                          "type": "NUM",
+                                                          "value": 1
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "BLOCK",
+                                                  "children": [
+                                                    {
+                                                      "type": "WHILE",
+                                                      "children": [
+                                                        {
+                                                          "type": "COMP",
+                                                          "op": ">",
+                                                          "children": [
+                                                            {
+                                                              "type": "ARRAY_REF",
+                                                              "children": [
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "a"
+                                                                },
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "j"
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "type": "IDENT",
+                                                              "value": "v"
+                                                            }
+                                                          ]
+                                                        },
+                                                        {
+                                                          "type": "BLOCK",
+                                                          "children": [
+                                                            {
+                                                              "type": "IF",
+                                                              "children": [
+                                                                {
+                                                                  "type": "COMP",
+                                                                  "op": "==",
+                                                                  "children": [
+                                                                    {
+                                                                      "type": "IDENT",
+                                                                      "value": "j"
+                                                                    },
+                                                                    {
+                                                                      "type": "IDENT",
+                                                                      "value": "l"
+                                                                    }
+                                                                  ]
+                                                                },
+                                                                {
+                                                                  "type": "BREAK"
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "type": "ASSIGN",
+                                                              "children": [
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "j"
+                                                                },
+                                                                {
+                                                                  "type": "ARITH",
+                                                                  "op": "-",
+                                                                  "children": [
+                                                                    {
+                                                                      "type": "IDENT",
+                                                                      "value": "j"
+                                                                    },
+                                                                    {
+                                                                      "type": "NUM",
+                                                                      "value": 1
+                                                                    }
+                                                                  ]
+                                                                }
+                                                              ]
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    },
+                                                    {
+                                                      "type": "BLOCK",
+                                                      "children": [
+                                                        {
+                                                          "type": "IF",
+                                                          "children": [
+                                                            {
+                                                              "type": "COMP",
+                                                              "op": ">=",
+                                                              "children": [
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "i"
+                                                                },
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "j"
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "type": "BREAK"
+                                                            }
+                                                          ]
+                                                        },
+                                                        {
+                                                          "type": "BLOCK",
+                                                          "children": [
+                                                            {
+                                                              "type": "ASSIGN",
+                                                              "children": [
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "t"
+                                                                },
+                                                                {
+                                                                  "type": "ARRAY_REF",
+                                                                  "children": [
+                                                                    {
+                                                                      "type": "IDENT",
+                                                                      "value": "a"
+                                                                    },
+                                                                    {
+                                                                      "type": "IDENT",
+                                                                      "value": "i"
+                                                                    }
+                                                                  ]
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "type": "BLOCK",
+                                                              "children": [
+                                                                {
+                                                                  "type": "ASSIGN",
+                                                                  "children": [
+                                                                    {
+                                                                      "type": "ARRAY_REF",
+                                                                      "children": [
+                                                                        {
+                                                                          "type": "IDENT",
+                                                                          "value": "a"
+                                                                        },
+                                                                        {
+                                                                          "type": "IDENT",
+                                                                          "value": "i"
+                                                                        }
+                                                                      ]
+                                                                    },
+                                                                    {
+                                                                      "type": "ARRAY_REF",
+                                                                      "children": [
+                                                                        {
+                                                                          "type": "IDENT",
+                                                                          "value": "a"
+                                                                        },
+                                                                        {
+                                                                          "type": "IDENT",
+                                                                          "value": "j"
+                                                                        }
+                                                                      ]
+                                                                    }
+                                                                  ]
+                                                                },
+                                                                {
+                                                                  "type": "ASSIGN",
+                                                                  "children": [
+                                                                    {
+                                                                      "type": "ARRAY_REF",
+                                                                      "children": [
+                                                                        {
+                                                                          "type": "IDENT",
+                                                                          "value": "a"
+                                                                        },
+                                                                        {
+                                                                          "type": "IDENT",
+                                                                          "value": "j"
+                                                                        }
+                                                                      ]
+                                                                    },
+                                                                    {
+                                                                      "type": "IDENT",
+                                                                      "value": "t"
+                                                                    }
+                                                                  ]
+                                                                }
+                                                              ]
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "BLOCK",
+                                  "children": [
+                                    {
+                                      "type": "ASSIGN",
+                                      "children": [
+                                        {
+                                          "type": "IDENT",
+                                          "value": "t"
+                                        },
+                                        {
+                                          "type": "ARRAY_REF",
+                                          "children": [
+                                            {
+                                              "type": "IDENT",
+                                              "value": "a"
+                                            },
+                                            {
+                                              "type": "IDENT",
+                                              "value": "i"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "BLOCK",
+                                      "children": [
+                                        {
+                                          "type": "ASSIGN",
+                                          "children": [
+                                            {
+                                              "type": "ARRAY_REF",
+                                              "children": [
+                                                {
+                                                  "type": "IDENT",
+                                                  "value": "a"
+                                                },
+                                                {
+                                                  "type": "IDENT",
+                                                  "value": "i"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "ARRAY_REF",
+                                              "children": [
+                                                {
+                                                  "type": "IDENT",
+                                                  "value": "a"
+                                                },
+                                                {
+                                                  "type": "IDENT",
+                                                  "value": "r"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "BLOCK",
+                                          "children": [
+                                            {
+                                              "type": "ASSIGN",
+                                              "children": [
+                                                {
+                                                  "type": "ARRAY_REF",
+                                                  "children": [
+                                                    {
+                                                      "type": "IDENT",
+                                                      "value": "a"
+                                                    },
+                                                    {
+                                                      "type": "IDENT",
+                                                      "value": "r"
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "IDENT",
+                                                  "value": "t"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "BLOCK",
+                                              "children": [
+                                                {
+                                                  "type": "CALL",
+                                                  "name": "quicksort",
+                                                  "children": [
+                                                    {
+                                                      "type": "ARGS",
+                                                      "children": [
+                                                        {
+                                                          "type": "IDENT",
+                                                          "value": "a"
+                                                        },
+                                                        {
+                                                          "type": "ARGS",
+                                                          "children": [
+                                                            {
+                                                              "type": "IDENT",
+                                                              "value": "l"
+                                                            },
+                                                            {
+                                                              "type": "ARITH",
+                                                              "op": "-",
+                                                              "children": [
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "i"
+                                                                },
+                                                                {
+                                                                  "type": "NUM",
+                                                                  "value": 1
+                                                                }
+                                                              ]
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "CALL",
+                                                  "name": "quicksort",
+                                                  "children": [
+                                                    {
+                                                      "type": "ARGS",
+                                                      "children": [
+                                                        {
+                                                          "type": "IDENT",
+                                                          "value": "a"
+                                                        },
+                                                        {
+                                                          "type": "ARGS",
+                                                          "children": [
+                                                            {
+                                                              "type": "ARITH",
+                                                              "op": "+",
+                                                              "children": [
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "i"
+                                                                },
+                                                                {
+                                                                  "type": "NUM",
+                                                                  "value": 1
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "type": "IDENT",
+                                                              "value": "r"
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+        },
+        {
+          "type": "FUNC",
+          "name": "main",
+          "params": 
+            null,
+          "locals": 
+            {
+              "type": "DEFARRAY",
+              "children": [
+                {
+                  "type": "IDENT",
+                  "value": "data"
+                },
+                {
+                  "type": "NUM",
+                  "value": 10
+                }
+              ]
+            },
+          "body": 
+            {
+              "type": "BLOCK",
+              "children": [
+                {
+                  "type": "ASSIGN",
+                  "children": [
+                    {
+                      "type": "ARRAY_REF",
+                      "children": [
+                        {
+                          "type": "IDENT",
+                          "value": "data"
+                        },
+                        {
+                          "type": "NUM",
+                          "value": 0
+                        }
+                      ]
+                    },
+                    {
+                      "type": "NUM",
+                      "value": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "BLOCK",
+                  "children": [
+                    {
+                      "type": "ASSIGN",
+                      "children": [
+                        {
+                          "type": "ARRAY_REF",
+                          "children": [
+                            {
+                              "type": "IDENT",
+                              "value": "data"
+                            },
+                            {
+                              "type": "NUM",
+                              "value": 1
+                            }
+                          ]
+                        },
+                        {
+                          "type": "NUM",
+                          "value": 4
+                        }
+                      ]
+                    },
+                    {
+                      "type": "BLOCK",
+                      "children": [
+                        {
+                          "type": "ASSIGN",
+                          "children": [
+                            {
+                              "type": "ARRAY_REF",
+                              "children": [
+                                {
+                                  "type": "IDENT",
+                                  "value": "data"
+                                },
+                                {
+                                  "type": "NUM",
+                                  "value": 2
+                                }
+                              ]
+                            },
+                            {
+                              "type": "NUM",
+                              "value": 2
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BLOCK",
+                          "children": [
+                            {
+                              "type": "ASSIGN",
+                              "children": [
+                                {
+                                  "type": "ARRAY_REF",
+                                  "children": [
+                                    {
+                                      "type": "IDENT",
+                                      "value": "data"
+                                    },
+                                    {
+                                      "type": "NUM",
+                                      "value": 3
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "NUM",
+                                  "value": 7
+                                }
+                              ]
+                            },
+                            {
+                              "type": "BLOCK",
+                              "children": [
+                                {
+                                  "type": "ASSIGN",
+                                  "children": [
+                                    {
+                                      "type": "ARRAY_REF",
+                                      "children": [
+                                        {
+                                          "type": "IDENT",
+                                          "value": "data"
+                                        },
+                                        {
+                                          "type": "NUM",
+                                          "value": 4
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "NUM",
+                                      "value": 3
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "BLOCK",
+                                  "children": [
+                                    {
+                                      "type": "ASSIGN",
+                                      "children": [
+                                        {
+                                          "type": "ARRAY_REF",
+                                          "children": [
+                                            {
+                                              "type": "IDENT",
+                                              "value": "data"
+                                            },
+                                            {
+                                              "type": "NUM",
+                                              "value": 5
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "NUM",
+                                          "value": 5
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "BLOCK",
+                                      "children": [
+                                        {
+                                          "type": "ASSIGN",
+                                          "children": [
+                                            {
+                                              "type": "ARRAY_REF",
+                                              "children": [
+                                                {
+                                                  "type": "IDENT",
+                                                  "value": "data"
+                                                },
+                                                {
+                                                  "type": "NUM",
+                                                  "value": 6
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "NUM",
+                                              "value": 9
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "BLOCK",
+                                          "children": [
+                                            {
+                                              "type": "ASSIGN",
+                                              "children": [
+                                                {
+                                                  "type": "ARRAY_REF",
+                                                  "children": [
+                                                    {
+                                                      "type": "IDENT",
+                                                      "value": "data"
+                                                    },
+                                                    {
+                                                      "type": "NUM",
+                                                      "value": 7
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "NUM",
+                                                  "value": 10
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "BLOCK",
+                                              "children": [
+                                                {
+                                                  "type": "ASSIGN",
+                                                  "children": [
+                                                    {
+                                                      "type": "ARRAY_REF",
+                                                      "children": [
+                                                        {
+                                                          "type": "IDENT",
+                                                          "value": "data"
+                                                        },
+                                                        {
+                                                          "type": "NUM",
+                                                          "value": 8
+                                                        }
+                                                      ]
+                                                    },
+                                                    {
+                                                      "type": "NUM",
+                                                      "value": 1
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "BLOCK",
+                                                  "children": [
+                                                    {
+                                                      "type": "ASSIGN",
+                                                      "children": [
+                                                        {
+                                                          "type": "ARRAY_REF",
+                                                          "children": [
+                                                            {
+                                                              "type": "IDENT",
+                                                              "value": "data"
+                                                            },
+                                                            {
+                                                              "type": "NUM",
+                                                              "value": 9
+                                                            }
+                                                          ]
+                                                        },
+                                                        {
+                                                          "type": "NUM",
+                                                          "value": 8
+                                                        }
+                                                      ]
+                                                    },
+                                                    {
+                                                      "type": "CALL",
+                                                      "name": "quicksort",
+                                                      "children": [
+                                                        {
+                                                          "type": "ARGS",
+                                                          "children": [
+                                                            {
+                                                              "type": "ADDR_OF",
+                                                              "children": [
+                                                                {
+                                                                  "type": "IDENT",
+                                                                  "value": "data"
+                                                                }
+                                                              ]
+                                                            },
+                                                            {
+                                                              "type": "ARGS",
+                                                              "children": [
+                                                                {
+                                                                  "type": "NUM",
+                                                                  "value": 0
+                                                                },
+                                                                {
+                                                                  "type": "NUM",
+                                                                  "value": 9
+                                                                }
+                                                              ]
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+        }
+      ]
+    }
+  ]
+}
