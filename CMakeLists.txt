@@ -4,6 +4,8 @@ project(basic_ls C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# set(CMAKE_BUILD_TYPE Debug)
+
 # flex / bison
 find_package(FLEX REQUIRED)
 find_package(BISON REQUIRED)
